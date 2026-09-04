@@ -275,18 +275,16 @@ body {
   width: var(--card-w);
   height: var(--card-h);
   border-radius: 8px;
-  background: repeating-linear-gradient(
-    45deg,
-    #1a3050,
-    #1a3050 4px,
-    #2a4070 4px,
-    #2a4070 8px
-  );
+  background-color: #1a3050;
+  background-image: url('/cards/dorso.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   box-shadow:
     2px 2px 0 #152840,
     4px 4px 0 #101c30,
     0 2px 8px var(--card-shadow);
-  border: 2px solid #3a5a8a;
+  border: 1px solid rgba(0, 0, 0, 0.35);
   cursor: default;
   transition: transform 0.15s, box-shadow 0.15s, outline 0.15s;
 }
@@ -479,9 +477,9 @@ body {
   width: 100%;
 }
 
-.opponent-hand .card {
-  background: linear-gradient(135deg, #2a4a7a, #1a3050);
-  border: 2px solid #3a5a8a;
+.opponent-hand .card.card-back {
+  /* dorso: vedi .card-back */
+  cursor: default;
 }
 
 .mini-hand .card,
@@ -550,14 +548,12 @@ body {
 
 .card-back {
   background-color: #1a3050;
-  background-image: repeating-linear-gradient(
-    45deg,
-    #1a3050,
-    #1a3050 4px,
-    #2a4070 4px,
-    #2a4070 8px
-  ) !important;
-  border: 2px solid #3a5a8a;
+  background-image: url('/cards/dorso.jpg') !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  cursor: default;
 }
 
 .card-points {
