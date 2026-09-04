@@ -375,9 +375,16 @@ export class LocalApp {
     const hand = this.currentGame.hands[player];
     let move;
     if (this.gameType === 'briscola') {
-      move = chooseBriscolaMove(hand, state.trick, state.trump, state.trick.length === 0);
+      move = chooseBriscolaMove(hand, state.trick, state.trump, {
+        isFirst: state.trick.length === 0,
+        seat: player,
+        playerCount: state.playerCount || 2,
+      });
     } else {
-      move = chooseTressetteMove(hand, state.trick, state.leadSuit);
+      move = chooseTressetteMove(hand, state.trick, state.leadSuit, {
+        seat: player,
+        playerCount: state.playerCount || 4,
+      });
     }
     if (move) {
       this.currentGame.playCard(player, move.id);

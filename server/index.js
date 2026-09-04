@@ -262,14 +262,16 @@ function runCpuTurn(room) {
   const hand = game.hands[player];
   let move = null;
   if (room.gameType === 'tressette') {
-    move = chooseTressetteMove(hand, game.trick, game.leadSuit);
+    move = chooseTressetteMove(hand, game.trick, game.leadSuit, {
+      seat: player,
+      playerCount: game.playerCount || room.playerCount || 4,
+    });
   } else {
-    move = chooseBriscolaMove(
-      hand,
-      game.trick,
-      game.trump,
-      game.trick.length === 0
-    );
+    move = chooseBriscolaMove(hand, game.trick, game.trump, {
+      isFirst: game.trick.length === 0,
+      seat: player,
+      playerCount: game.playerCount || room.playerCount || 2,
+    });
   }
   if (!move) return;
   rooms.playCpuCard(room, player, move.id);
