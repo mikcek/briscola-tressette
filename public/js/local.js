@@ -15,6 +15,7 @@ import {
 } from './ui.js';
 
 const TRICK_REVEAL_MS = 1600;
+const DRAW_REVEAL_MS = 1800;
 const CPU_DRAW_MS = 700;
 
 /** Modalità locale vs CPU (allenamento). */
@@ -22,7 +23,7 @@ export class LocalApp {
   constructor(rootApp) {
     this.root = rootApp;
     this.currentGame = null;
-    this.gameType = null;
+    this.gameType = null; // briscola | tressette2 | tressette4
     this.aiTimer = null;
     this.trickTimer = null;
     this.drawTimer = null;
@@ -41,29 +42,43 @@ export class LocalApp {
     this.currentGame = null;
   }
 
+  get isTressette() {
+    return this.gameType === 'tressette2' || this.gameType === 'tressette4';
+  }
+
   start(type) {
     this.clearTimers();
-    this.gameType = type;
+    this.gameType = type === 'tressette' ? 'tressette4' : type;
     this._showingResult = false;
+    this.selectedSignal = null;
     showScreen('game-screen');
 
     const briscolaTable = document.getElementById('table-briscola');
-    const tressetteTable = document.getElementById('table-tressette');
+    const tressette2 = document.getElementById('table-tressette-2');
+    const tressette4 = document.getElementById('table-tressette');
     const table4 = document.getElementById('table-briscola-4');
 
     table4?.classList.add('hidden');
+    briscolaTable.classList.add('hidden');
+    tressette2?.classList.add('hidden');
+    tressette4.classList.add('hidden');
 
-    if (type === 'briscola') {
+    if (this.gameType === 'briscola') {
       document.getElementById('game-title').textContent = 'Briscola (vs CPU)';
       briscolaTable.classList.remove('hidden');
-      tressetteTable.classList.add('hidden');
       this.currentGame = new BriscolaGame(2, ['Tu', 'CPU']);
       updateScoreboard([0, 0], ['Tu', 'CPU'], 'Vince chi fa 61 su 120');
+    } else if (this.gameType === 'tressette2') {
+      document.getElementById('game-title').textContent = 'Tressette 1 vs 1';
+      tressette2.classList.remove('hidden');
+      this.currentGame = new TressetteGame(['Tu', 'CPU'], { playerCount: 2 });
+      updateScoreboard([0, 0], ['Tu', 'CPU'], 'Pesca ed esibizione · a 21');
     } else {
-      document.getElementById('game-title').textContent = 'Tressette (locale)';
-      briscolaTable.classList.add('hidden');
-      tressetteTable.classList.remove('hidden');
-      this.currentGame = new TressetteGame(['Tu', 'Avv. 2', 'Partner', 'Avv. 1']);
+      document.getElementById('game-title').textContent = 'Tressette 2 vs 2';
+      tressette4.classList.remove('hidden');
+      this.currentGame = new TressetteGame(['Tu', 'Avv. Est', 'Partner', 'Avv. Ovest'], {
+        playerCount: 4,
+      });
       updateScoreboard([0, 0], ['Noi', 'Loro'], 'Prima a 21 punti');
     }
 
@@ -85,7 +100,8 @@ export class LocalApp {
 
   render() {
     if (this.gameType === 'briscola') this.renderBriscola();
-    else this.renderTressette();
+    else if (this.gameType === 'tressette2') this.renderTressette2();
+    else this.renderTressette4();
   }
 
   renderBriscola() {
@@ -160,7 +176,68 @@ export class LocalApp {
     }
   }
 
-  renderTressette() {
+  renderTressette2() {
+    const state = this.currentGame.getViewFor(0);
+    updateScoreboard(
+      state.scores,
+      ['Tu', 'CPU'],
+      `Mazzo: ${state.deckRemaining} · a ${state.targetScore}`
+    );
+    setMessage('game-message-ts2', state.message);
+
+    document.getElementById('ts2-opp-name').textContent = state.playerNames[1];
+    document.getElementById('ts2-opp-count').textContent = state.handCounts[1];
+    document.getElementById('ts2-player-name').textContent = state.playerNames[0];
+
+    const deckArea = document.getElementById('ts2-deck-area');
+    const deckPile = document.getElementById('ts2-deck-pile');
+    const deckCount = document.getElementById('ts2-deck-count');
+    if (state.deckRemaining > 0) {
+      deckArea.classList.remove('hidden');
+      deckPile.classList.remove('empty');
+      deckCount.textContent = `${state.deckRemaining} carte`;
+    } else {
+      deckArea.classList.add('hidden');
+    }
+
+    renderDrawReveal('ts2-draw-reveal', state, this.currentGame.playerNames);
+
+    renderFaceDownHand(document.getElementById('ts2-opp-hand'), state.handCounts[1]);
+    renderHand(document.getElementById('ts2-player-hand'), state.hands[0], {
+      game: 'tressette',
+      disabled: !state.canPlay,
+      onClick: (card) => this.onPlayerPlay(card),
+    });
+    markPlayable('#ts2-player-hand', state.playableCardIds);
+
+    renderTrick(
+      document.getElementById('trick-area-ts2'),
+      state.trick,
+      state.playerNames,
+      'tressette'
+    );
+
+    renderSignalBar(document.getElementById('tressette2-signals'), {
+      enabled: !!state.canSignal,
+      selected: this.selectedSignal,
+      onSelect: (sig) => {
+        this.selectedSignal = sig;
+        this.currentGame.setPendingSignal(sig);
+        this.renderTressette2();
+      },
+    });
+
+    const log = document.getElementById('tressette2-accusi');
+    if (log) {
+      log.textContent = state.accusoLog?.length
+        ? `Accusi: ${state.accusoLog.join(' · ')}`
+        : '';
+    }
+
+    if (state.handOver && !this._showingResult) this.showHandResult(state);
+  }
+
+  renderTressette4() {
     const state = this.currentGame.getViewFor(0);
     updateScoreboard(
       state.scores,
@@ -203,7 +280,7 @@ export class LocalApp {
       onSelect: (sig) => {
         this.selectedSignal = sig;
         this.currentGame.setPendingSignal(sig);
-        this.renderTressette();
+        this.renderTressette4();
       },
     });
 
@@ -219,7 +296,7 @@ export class LocalApp {
 
   onPlayerPlay(card) {
     if (!this.currentGame.canPlay(0, card.id)) return;
-    if (this.gameType === 'tressette') {
+    if (this.isTressette) {
       this.currentGame.playCard(0, card.id, this.selectedSignal);
       this.selectedSignal = null;
     } else {
@@ -246,6 +323,16 @@ export class LocalApp {
         this.render();
         this.advanceFlow();
       }, TRICK_REVEAL_MS);
+      return;
+    }
+
+    if (state.phase === 'showingDraw') {
+      clearTimeout(this.drawTimer);
+      this.drawTimer = setTimeout(() => {
+        this.currentGame.acknowledgeDraws();
+        this.render();
+        this.advanceFlow();
+      }, DRAW_REVEAL_MS);
       return;
     }
 
@@ -300,7 +387,7 @@ export class LocalApp {
       else title = 'Patta';
       detail = `Punteggio: ${state.scores[0]} — ${state.scores[1]}`;
     } else if (state.gameOver) {
-      title = state.winner === 0 ? 'Vittoria!' : 'Sconfitta';
+      title = state.winner === 0 ? 'Vittoria!' : state.winner === -1 ? 'Patta' : 'Sconfitta';
     }
 
     showOverlay(title, detail, () => {
@@ -310,6 +397,27 @@ export class LocalApp {
       this.render();
       this.advanceFlow();
     });
+  }
+}
+
+function renderDrawReveal(elId, state, names) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (state.phase !== 'showingDraw' || !state.revealedDraws?.length) {
+    el.classList.add('hidden');
+    el.innerHTML = '';
+    return;
+  }
+  el.classList.remove('hidden');
+  el.innerHTML = '';
+  for (const d of state.revealedDraws) {
+    const wrap = document.createElement('div');
+    wrap.className = 'draw-reveal-item';
+    const label = document.createElement('span');
+    label.textContent = names[d.player] || `P${d.player + 1}`;
+    wrap.appendChild(label);
+    wrap.appendChild(createCardElement(d.card, { game: 'tressette' }));
+    el.appendChild(wrap);
   }
 }
 

@@ -23,13 +23,12 @@ export class RoomManager {
   }
 
   createRoom({ gameType, playerCount, nickname, playerId }) {
-    const code = this.generateCode();
-    const seatsNeeded =
-      gameType === 'tressette' ? 4 : playerCount === 4 ? 4 : 2;
+    const type = gameType === 'tressette' ? 'tressette' : 'briscola';
+    const seatsNeeded = Number(playerCount) === 4 ? 4 : 2;
 
     const room = {
-      code,
-      gameType: gameType === 'tressette' ? 'tressette' : 'briscola',
+      code: this.generateCode(),
+      gameType: type,
       playerCount: seatsNeeded,
       hostId: playerId,
       phase: 'lobby',
@@ -38,22 +37,25 @@ export class RoomManager {
         playerId: null,
         nickname: null,
         connected: false,
+        isCpu: false,
       })),
       game: null,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       trickTimer: null,
+      drawTimer: null,
+      cpuTimer: null,
     };
 
-    // Host prende il posto 0
     room.seats[0] = {
       seatIndex: 0,
       playerId,
       nickname: sanitizeName(nickname),
       connected: true,
+      isCpu: false,
     };
-    this.rooms.set(code, room);
-    this.byPlayer.set(playerId, code);
+    this.rooms.set(room.code, room);
+    this.byPlayer.set(playerId, room.code);
     return room;
   }
 
@@ -72,7 +74,6 @@ export class RoomManager {
     if (!room) throw new Error('Stanza non trovata');
     if (room.phase !== 'lobby') throw new Error('La partita è già iniziata');
 
-    // Rientro stesso player
     const existing = room.seats.find((s) => s.playerId === playerId);
     if (existing) {
       existing.connected = true;
@@ -88,11 +89,30 @@ export class RoomManager {
         : room.seats.find((s) => !s.playerId);
 
     if (!seat || seat.playerId) throw new Error('Posto non disponibile');
+    if (seat.isCpu) throw new Error('Posto occupato dalla CPU');
 
     seat.playerId = playerId;
     seat.nickname = sanitizeName(nickname);
     seat.connected = true;
+    seat.isCpu = false;
     this.byPlayer.set(playerId, room.code);
+    room.updatedAt = Date.now();
+    return room;
+  }
+
+  fillCpu(playerId) {
+    const room = this.findRoomByPlayer(playerId);
+    if (!room) throw new Error('Stanza non trovata');
+    if (room.hostId !== playerId) throw new Error('Solo l\'host può riempire con CPU');
+    if (room.phase !== 'lobby') throw new Error('La partita è già iniziata');
+
+    for (const seat of room.seats) {
+      if (seat.playerId) continue;
+      seat.isCpu = true;
+      seat.playerId = `cpu_${room.code}_${seat.seatIndex}`;
+      seat.nickname = `CPU ${seat.seatIndex + 1}`;
+      seat.connected = true;
+    }
     room.updatedAt = Date.now();
     return room;
   }
@@ -100,7 +120,7 @@ export class RoomManager {
   reconnect({ code, playerId }) {
     const room = this.getRoom(code);
     if (!room) return null;
-    const seat = room.seats.find((s) => s.playerId === playerId);
+    const seat = room.seats.find((s) => s.playerId === playerId && !s.isCpu);
     if (!seat) return null;
     seat.connected = true;
     this.byPlayer.set(playerId, room.code);
@@ -112,7 +132,7 @@ export class RoomManager {
     const room = this.findRoomByPlayer(playerId);
     if (!room) return null;
     const seat = room.seats.find((s) => s.playerId === playerId);
-    if (seat) seat.connected = false;
+    if (seat && !seat.isCpu) seat.connected = false;
     room.updatedAt = Date.now();
     return room;
   }
@@ -126,6 +146,7 @@ export class RoomManager {
       seat.playerId = null;
       seat.nickname = null;
       seat.connected = false;
+      seat.isCpu = false;
     } else if (seat) {
       seat.connected = false;
     }
@@ -133,11 +154,12 @@ export class RoomManager {
     this.byPlayer.delete(playerId);
 
     if (room.hostId === playerId && room.phase === 'lobby') {
-      const nextHost = room.seats.find((s) => s.playerId);
+      const nextHost = room.seats.find((s) => s.playerId && !s.isCpu);
       room.hostId = nextHost ? nextHost.playerId : null;
     }
 
-    if (room.seats.every((s) => !s.playerId)) {
+    const humansLeft = room.seats.some((s) => s.playerId && !s.isCpu);
+    if (!humansLeft) {
       this.deleteRoom(room.code);
       return null;
     }
@@ -152,12 +174,12 @@ export class RoomManager {
     if (room.hostId !== playerId) throw new Error('Solo l\'host può avviare');
     if (room.phase !== 'lobby') throw new Error('Già avviata');
     if (room.seats.some((s) => !s.playerId)) {
-      throw new Error('Aspetta che tutti i posti siano occupati');
+      throw new Error('Riempi i posti liberi (giocatori o CPU)');
     }
 
     const names = room.seats.map((s) => s.nickname || `P${s.seatIndex + 1}`);
     if (room.gameType === 'tressette') {
-      room.game = new TressetteGame(names);
+      room.game = new TressetteGame(names, { playerCount: room.playerCount });
     } else {
       room.game = new BriscolaGame(room.playerCount, names);
     }
@@ -191,6 +213,7 @@ export class RoomManager {
 
   playCard(playerId, cardId, signal = null) {
     const { room, seat } = this.requirePlayingSeat(playerId);
+    if (seat.isCpu) throw new Error('Posto CPU');
     const ok =
       room.gameType === 'tressette'
         ? room.game.playCard(seat.seatIndex, cardId, signal)
@@ -198,6 +221,16 @@ export class RoomManager {
     if (!ok) throw new Error('Mossa non valida');
     room.updatedAt = Date.now();
     return room;
+  }
+
+  playCpuCard(room, seatIndex, cardId, signal = null) {
+    if (!room?.game) return false;
+    const ok =
+      room.gameType === 'tressette'
+        ? room.game.playCard(seatIndex, cardId, signal)
+        : room.game.playCard(seatIndex, cardId);
+    if (ok) room.updatedAt = Date.now();
+    return ok;
   }
 
   setSignal(playerId, signal) {
@@ -232,6 +265,15 @@ export class RoomManager {
     return room;
   }
 
+  acknowledgeDraws(roomCode) {
+    const room = this.getRoom(roomCode);
+    if (!room?.game) return null;
+    if (room.game.phase !== 'showingDraw') return room;
+    room.game.acknowledgeDraws();
+    room.updatedAt = Date.now();
+    return room;
+  }
+
   requirePlayingSeat(playerId) {
     const room = this.findRoomByPlayer(playerId);
     if (!room || !room.game) throw new Error('Nessuna partita attiva');
@@ -252,7 +294,8 @@ export class RoomManager {
         nickname: s.nickname,
         occupied: !!s.playerId,
         connected: s.connected,
-        playerId: s.playerId,
+        playerId: s.isCpu ? null : s.playerId,
+        isCpu: !!s.isCpu,
       })),
     };
   }
@@ -261,8 +304,10 @@ export class RoomManager {
     const room = this.getRoom(code);
     if (!room) return;
     if (room.trickTimer) clearTimeout(room.trickTimer);
+    if (room.drawTimer) clearTimeout(room.drawTimer);
+    if (room.cpuTimer) clearTimeout(room.cpuTimer);
     for (const seat of room.seats) {
-      if (seat.playerId) this.byPlayer.delete(seat.playerId);
+      if (seat.playerId && !seat.isCpu) this.byPlayer.delete(seat.playerId);
     }
     this.rooms.delete(room.code);
   }
@@ -270,8 +315,9 @@ export class RoomManager {
   cleanup() {
     const now = Date.now();
     for (const room of [...this.rooms.values()]) {
-      const empty = room.seats.every((s) => !s.connected);
-      const stale = now - room.updatedAt > (empty ? EMPTY_TTL_MS : ROOM_TTL_MS);
+      const humans = room.seats.filter((s) => s.playerId && !s.isCpu);
+      const empty = humans.every((s) => !s.connected);
+      const stale = now - room.updatedAt > (empty || humans.length === 0 ? EMPTY_TTL_MS : ROOM_TTL_MS);
       if (stale) this.deleteRoom(room.code);
     }
   }

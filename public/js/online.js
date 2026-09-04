@@ -112,9 +112,17 @@ export class OnlineApp {
 
   renderLobby() {
     if (!this.room) return;
+    const modeLabel =
+      this.room.gameType === 'tressette'
+        ? this.room.playerCount === 2
+          ? 'Tressette 1 vs 1'
+          : 'Tressette a squadre'
+        : this.room.playerCount === 4
+          ? 'Briscola a 4'
+          : 'Briscola 1 vs 1';
     document.getElementById('lobby-code').textContent = this.room.code;
     document.getElementById('lobby-meta').textContent =
-      `${this.room.gameType === 'tressette' ? 'Tressette' : 'Briscola'} · ${this.room.playerCount} giocatori`;
+      `${modeLabel} · ${this.room.playerCount} posti`;
 
     const link = `${location.origin}/?room=${this.room.code}`;
     document.getElementById('lobby-link').value = link;
@@ -127,11 +135,18 @@ export class OnlineApp {
     seatsEl.innerHTML = '';
     for (const seat of this.room.seats) {
       const btn = document.createElement('button');
-      btn.className = 'seat-slot' + (seat.occupied ? ' filled' : '') + (seat.connected === false ? ' away' : '');
+      btn.className =
+        'seat-slot' +
+        (seat.occupied ? ' filled' : '') +
+        (seat.connected === false ? ' away' : '') +
+        (seat.isCpu ? ' cpu' : '');
       btn.type = 'button';
-      const team = seat.seatIndex % 2 === 0 ? 'A' : 'B';
-      btn.innerHTML = `<span class="seat-idx">Posto ${seat.seatIndex + 1} · Squadra ${team}</span><strong>${
-        seat.occupied ? seat.nickname : 'Libero'
+      const team =
+        this.room.playerCount === 4
+          ? ` · Squadra ${seat.seatIndex % 2 === 0 ? 'A' : 'B'}`
+          : '';
+      btn.innerHTML = `<span class="seat-idx">Posto ${seat.seatIndex + 1}${team}</span><strong>${
+        seat.occupied ? (seat.isCpu ? seat.nickname : seat.nickname) : 'Libero'
       }</strong>`;
       if (!seat.occupied) {
         btn.addEventListener('click', () => {
@@ -148,8 +163,12 @@ export class OnlineApp {
     }
 
     const startBtn = document.getElementById('btn-start-game');
+    const fillBtn = document.getElementById('btn-fill-cpu');
     const isHost = this.you?.isHost;
     const full = this.room.seats.every((s) => s.occupied);
+    const hasEmpty = this.room.seats.some((s) => !s.occupied);
+
+    fillBtn?.classList.toggle('hidden', !isHost || !hasEmpty);
     startBtn.classList.toggle('hidden', !isHost);
     startBtn.disabled = !full;
     startBtn.textContent = full ? 'Avvia partita' : 'In attesa dei giocatori…';
@@ -157,6 +176,10 @@ export class OnlineApp {
 
   startGame() {
     this.net.send({ type: 'startGame' });
+  }
+
+  fillCpu() {
+    this.net.send({ type: 'fillCpu' });
   }
 
   leave() {
@@ -181,22 +204,26 @@ export class OnlineApp {
 
     const isBriscola = this.state.gameType === 'briscola';
     const is4 = this.state.playerCount === 4;
+    const isTs2 = !isBriscola && !is4;
 
     document.getElementById('table-briscola').classList.toggle('hidden', !(isBriscola && !is4));
     document.getElementById('table-briscola-4').classList.toggle('hidden', !(isBriscola && is4));
-    document.getElementById('table-tressette').classList.toggle('hidden', isBriscola);
+    document.getElementById('table-tressette-2')?.classList.toggle('hidden', !isTs2);
+    document.getElementById('table-tressette').classList.toggle('hidden', isBriscola || isTs2);
 
     document.getElementById('game-title').textContent =
-      `${isBriscola ? 'Briscola' : 'Tressette'} · ${this.room.code}`;
+      `${isBriscola ? 'Briscola' : isTs2 ? 'Tressette 1 vs 1' : 'Tressette'} · ${this.room.code}`;
 
     const myTeam = this.you.seatIndex % 2;
     let labels;
     let scores;
-    if (isBriscola && !is4) {
+    if ((isBriscola && !is4) || isTs2) {
       const me = this.you.seatIndex;
       const opp = 1 - me;
       labels = [this.state.playerNames[me], this.state.playerNames[opp]];
-      scores = [this.state.handPoints[me], this.state.handPoints[opp]];
+      scores = isBriscola
+        ? [this.state.handPoints[me], this.state.handPoints[opp]]
+        : [this.state.scores[me], this.state.scores[opp]];
     } else {
       const raw = isBriscola ? this.state.handPoints : this.state.scores;
       if (myTeam === 0) {
@@ -212,9 +239,10 @@ export class OnlineApp {
 
     if (isBriscola && !is4) this.renderBriscola2();
     else if (isBriscola && is4) this.renderFourTable('table-briscola-4', 'briscola');
+    else if (isTs2) this.renderTressette2();
     else {
       this.renderFourTable('table-tressette', 'tressette');
-      this.renderTressetteExtras();
+      this.renderTressetteExtras('tressette-signals', 'tressette-accusi');
     }
 
     if ((this.state.handOver || this.state.gameOver) && !this._showingResult) {
@@ -222,18 +250,79 @@ export class OnlineApp {
     }
   }
 
-  renderTressetteExtras() {
+  renderTressette2() {
     const state = this.state;
-    renderSignalBar(document.getElementById('tressette-signals'), {
+    const me = this.you.seatIndex;
+    const opp = 1 - me;
+
+    setMessage('game-message-ts2', state.message);
+
+    document.getElementById('ts2-opp-name').textContent = state.playerNames[opp];
+    document.getElementById('ts2-opp-count').textContent = state.handCounts[opp];
+    document.getElementById('ts2-player-name').textContent = state.playerNames[me];
+
+    const deckArea = document.getElementById('ts2-deck-area');
+    const deckPile = document.getElementById('ts2-deck-pile');
+    const deckCount = document.getElementById('ts2-deck-count');
+    if (state.deckRemaining > 0) {
+      deckArea.classList.remove('hidden');
+      deckPile.classList.remove('empty');
+      deckCount.textContent = `${state.deckRemaining} carte`;
+    } else {
+      deckArea.classList.add('hidden');
+    }
+
+    this.renderDrawReveal('ts2-draw-reveal', state);
+
+    renderFaceDownHand(document.getElementById('ts2-opp-hand'), state.handCounts[opp]);
+    renderHand(document.getElementById('ts2-player-hand'), state.hands[me], {
+      game: 'tressette',
+      disabled: !state.canPlay,
+      onClick: (card) => this.playCard(card.id),
+    });
+    markPlayable('#ts2-player-hand', state.playableCardIds);
+    renderTrick(
+      document.getElementById('trick-area-ts2'),
+      state.trick,
+      state.playerNames,
+      'tressette'
+    );
+    this.renderTressetteExtras('tressette2-signals', 'tressette2-accusi');
+  }
+
+  renderDrawReveal(elId, state) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    if (state.phase !== 'showingDraw' || !state.revealedDraws?.length) {
+      el.classList.add('hidden');
+      el.innerHTML = '';
+      return;
+    }
+    el.classList.remove('hidden');
+    el.innerHTML = '';
+    for (const d of state.revealedDraws) {
+      const wrap = document.createElement('div');
+      wrap.className = 'draw-reveal-item';
+      const label = document.createElement('span');
+      label.textContent = state.playerNames[d.player] || `P${d.player + 1}`;
+      wrap.appendChild(label);
+      wrap.appendChild(createCardElement(d.card, { game: 'tressette' }));
+      el.appendChild(wrap);
+    }
+  }
+
+  renderTressetteExtras(signalsId = 'tressette-signals', logId = 'tressette-accusi') {
+    const state = this.state;
+    renderSignalBar(document.getElementById(signalsId), {
       enabled: !!state.canSignal,
       selected: this.selectedSignal,
       onSelect: (sig) => {
         this.selectedSignal = sig;
         this.net.send({ type: 'setSignal', signal: sig });
-        this.renderTressetteExtras();
+        this.renderTressetteExtras(signalsId, logId);
       },
     });
-    const log = document.getElementById('tressette-accusi');
+    const log = document.getElementById(logId);
     if (log) {
       log.textContent = state.accusoLog?.length
         ? `Accusi: ${state.accusoLog.join(' · ')}`

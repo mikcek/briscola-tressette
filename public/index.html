@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Briscola & Tressette</title>
   <link rel="manifest" href="/manifest.json">
-  <link rel="stylesheet" href="/styles.css?v=5">
+  <link rel="stylesheet" href="/styles.css?v=6">
 </head>
 <body>
   <div id="app">
@@ -43,9 +43,13 @@
           <h2>Briscola</h2>
           <p>Tu vs CPU · 61 punti</p>
         </button>
-        <button class="game-select local-game-select" data-game="tressette" type="button">
-          <h2>Tressette</h2>
-          <p>4 posti · partner e CPU</p>
+        <button class="game-select local-game-select" data-game="tressette2" type="button">
+          <h2>Tressette 1 vs 1</h2>
+          <p>Pesca ed esibizione · a 21</p>
+        </button>
+        <button class="game-select local-game-select" data-game="tressette4" type="button">
+          <h2>Tressette 2 vs 2</h2>
+          <p>Tu + partner CPU · avversari CPU</p>
         </button>
       </div>
     </div>
@@ -89,10 +93,11 @@
           </label>
           <label>Giocatori
             <select id="select-player-count">
-              <option value="2">2</option>
-              <option value="4">4</option>
+              <option value="2">2 (1 vs 1)</option>
+              <option value="4">4 (a squadre)</option>
             </select>
           </label>
+          <p id="setup-hint" class="form-hint">Tressette a 2: pesca ed esibizione. A 4: posti liberi riempibili con CPU.</p>
         </div>
         <div id="join-fields" class="hidden">
           <label>Codice stanza
@@ -120,6 +125,7 @@
         <img id="lobby-qr" class="lobby-qr" width="160" height="160" alt="">
         <input id="lobby-link" class="lobby-link" readonly>
         <div id="lobby-seats" class="lobby-seats"></div>
+        <button id="btn-fill-cpu" class="btn-secondary hidden" type="button">Riempi posti liberi con CPU</button>
         <button id="btn-start-game" class="btn-primary" type="button">Avvia partita</button>
       </div>
     </div>
@@ -207,6 +213,35 @@
         </div>
       </div>
 
+      <!-- Tressette 2 (pesca + esibizione) -->
+      <div id="table-tressette-2" class="table hidden">
+        <div class="opponent-area">
+          <div class="player-info">
+            <span class="player-name" id="ts2-opp-name">CPU</span>
+            <span class="card-count" id="ts2-opp-count">10</span>
+          </div>
+          <div class="hand opponent-hand" id="ts2-opp-hand"></div>
+        </div>
+        <div class="play-area">
+          <div class="deck-area" id="ts2-deck-area">
+            <div class="deck-stack">
+              <div class="deck-pile" id="ts2-deck-pile"></div>
+            </div>
+            <span class="trump-label">Mazzo</span>
+            <span class="deck-count" id="ts2-deck-count"></span>
+          </div>
+          <div id="ts2-draw-reveal" class="draw-reveal hidden"></div>
+          <div class="trick-area" id="trick-area-ts2"></div>
+          <div class="message" id="game-message-ts2"></div>
+          <div id="tressette2-signals" class="signal-bar hidden"></div>
+          <div id="tressette2-accusi" class="accusi-log"></div>
+        </div>
+        <div class="player-area">
+          <div class="hand player-hand" id="ts2-player-hand"></div>
+          <div class="player-info"><span class="player-name" id="ts2-player-name">Tu</span></div>
+        </div>
+      </div>
+
       <!-- Tressette 4 -->
       <div id="table-tressette" class="table hidden">
         <div class="tressette-layout">
@@ -220,6 +255,7 @@
               <div class="hand mini-hand vertical" id="hand-west"></div>
             </div>
             <div class="play-area tressette-center">
+              <div id="ts4-draw-reveal" class="draw-reveal hidden"></div>
               <div class="trick-area" id="trick-area-ts"></div>
               <div class="message" id="game-message-ts"></div>
               <div id="tressette-signals" class="signal-bar hidden"></div>
@@ -247,6 +283,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/main.js?v=5"></script>
+  <script type="module" src="/js/main.js?v=6"></script>
 </body>
 </html>

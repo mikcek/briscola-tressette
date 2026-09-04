@@ -753,3 +753,50 @@ body {
   text-align: center;
   min-height: 1em;
 }
+
+.form-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0.25rem 0 0.75rem;
+  line-height: 1.35;
+}
+
+.seat-slot.cpu {
+  border-color: rgba(212, 168, 83, 0.45);
+  background: rgba(212, 168, 83, 0.12);
+}
+
+.draw-reveal {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  align-items: flex-end;
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 10px;
+  border: 1px solid rgba(212, 168, 83, 0.35);
+}
+
+.draw-reveal.hidden {
+  display: none;
+}
+
+.draw-reveal-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--gold-light);
+}
+
+#ts2-deck-area {
+  position: relative;
+  margin-bottom: 0.35rem;
+}
+
+#btn-fill-cpu {
+  width: min(100%, 320px);
+  margin-bottom: 0.5rem;
+}

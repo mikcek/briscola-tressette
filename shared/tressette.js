@@ -18,19 +18,18 @@ const SIGNAL_LABELS = {
 };
 
 /**
- * Tressette a 4 (squadre 0+2 vs 1+3) — regolamento ufficiale.
- * - 10 carte a testa, niente pesca
- * - Obbligo di rispondere al seme
- * - Gerarchia: 3 > 2 > A > R > C > F > 7 > 6 > 5 > 4
- * - Punti: Asso=1; 3/2/R/C/F=⅓; ultima presa=+1; arrotondamento per difetto
- * - Accusi automatici (Napoletana / Bongioco / Super Bongioco)
- * - Segnali: Busso, Volo, Striscio
- * - Vittoria a 21 (default)
+ * Tressette
+ * - 4 giocatori: squadre 0+2 vs 1+3, 10 carte, niente pesca (regolamento ufficiale)
+ * - 2 giocatori: 10 carte a testa, pesca dal mazzo dopo ogni presa con esibizione
+ *   della carta pescata all'avversario; stessa gerarchia/punteggio; vittoria a 21
  */
 export class TressetteGame {
   constructor(playerNames = null, options = {}) {
-    this.playerCount = 4;
-    this.playerNames = playerNames || ['Sud', 'Est', 'Nord', 'Ovest'];
+    const count = options.playerCount === 2 ? 2 : 4;
+    this.playerCount = count;
+    this.playerNames =
+      playerNames ||
+      (count === 2 ? ['Giocatore 1', 'Giocatore 2'] : ['Sud', 'Est', 'Nord', 'Ovest']);
     this.targetScore = options.targetScore || 21;
     this.enableAccusi = options.enableAccusi !== false;
     this.reset();
@@ -39,9 +38,9 @@ export class TressetteGame {
   reset() {
     resetCardIds();
     this.deck = [];
-    this.hands = [[], [], [], []];
+    this.hands = Array.from({ length: this.playerCount }, () => []);
     this.trick = [];
-    this.captured = [[], [], [], []];
+    this.captured = Array.from({ length: this.playerCount }, () => []);
     this.currentPlayer = 0;
     this.leadSuit = null;
     this.scores = [0, 0];
@@ -54,9 +53,12 @@ export class TressetteGame {
     this.gameOver = false;
     this.winner = null;
     this.trickWinner = null;
-    this.dealer = 3;
+    this.dealer = this.playerCount - 1;
     this.tricksPlayed = 0;
     this.pendingSignal = null;
+    this.revealedDraws = [];
+    this._postDrawStarter = null;
+    this._lastTrickWinner = null;
   }
 
   getTeam(player) {
@@ -64,14 +66,25 @@ export class TressetteGame {
   }
 
   nextSeat(seat) {
-    return (seat + 1) % 4;
+    return (seat + 1) % this.playerCount;
+  }
+
+  teamLabel(team) {
+    if (this.playerCount === 2) {
+      return this.playerNames[team] || (team === 0 ? 'A' : 'B');
+    }
+    return team === 0 ? 'Squadra A' : 'Squadra B';
   }
 
   startGame() {
-    const dealer = this.dealer ?? 3;
+    const dealer = this.dealer ?? this.playerCount - 1;
     const target = this.targetScore;
     const accusi = this.enableAccusi;
+    const names = [...this.playerNames];
+    const count = this.playerCount;
     this.reset();
+    this.playerCount = count;
+    this.playerNames = names;
     this.dealer = dealer;
     this.targetScore = target;
     this.enableAccusi = accusi;
@@ -82,9 +95,9 @@ export class TressetteGame {
   startHand() {
     resetCardIds();
     this.deck = shuffle(createDeck());
-    this.hands = [[], [], [], []];
+    this.hands = Array.from({ length: this.playerCount }, () => []);
     this.trick = [];
-    this.captured = [[], [], [], []];
+    this.captured = Array.from({ length: this.playerCount }, () => []);
     this.leadSuit = null;
     this.handOver = false;
     this.gameOver = false;
@@ -96,28 +109,28 @@ export class TressetteGame {
     this.accusoLog = [];
     this.tricksPlayed = 0;
     this.pendingSignal = null;
+    this.revealedDraws = [];
+    this._postDrawStarter = null;
+    this._lastTrickWinner = null;
 
-    // Distribuzione antioraria, 10 carte a testa (tutto il mazzo)
+    const cardsEach = 10;
     let seat = this.nextSeat(this.dealer);
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < cardsEach * this.playerCount; i++) {
       this.hands[seat].push(this.deck.pop());
       seat = this.nextSeat(seat);
     }
+    // A 4: mazzo vuoto. A 2: restano 20 carte per la pesca.
 
     if (this.enableAccusi) {
       this.applyAccusi();
     }
 
-    // Vittoria immediata se gli accusi bastano (raro ma regolamentare)
     if (this.scores[0] >= this.targetScore || this.scores[1] >= this.targetScore) {
       this.handOver = true;
       this.phase = 'handOver';
       this.gameOver = true;
       this.winner = this.scores[0] >= this.targetScore ? 0 : 1;
-      this.message =
-        this.winner === 0
-          ? `Squadra A vince ${this.scores[0]}-${this.scores[1]} (accusi)`
-          : `Squadra B vince ${this.scores[0]}-${this.scores[1]} (accusi)`;
+      this.message = `${this.teamLabel(this.winner)} vince ${this.scores[0]}-${this.scores[1]} (accusi)`;
       return;
     }
 
@@ -128,7 +141,7 @@ export class TressetteGame {
   }
 
   applyAccusi() {
-    for (let p = 0; p < 4; p++) {
+    for (let p = 0; p < this.playerCount; p++) {
       const { points, labels } = detectAccusi(this.hands[p]);
       if (points <= 0) continue;
       const team = this.getTeam(p);
@@ -182,14 +195,13 @@ export class TressetteGame {
           : null;
     this.pendingSignal = null;
 
-    // Segnali solo sul seme giocato (regolamento)
     if (this.trick.length === 0) this.leadSuit = card.suit;
     this.trick.push({ player, card, signal: sig });
 
     let msg = `${this.playerNames[player]} gioca`;
     if (sig) msg += ` (${SIGNAL_LABELS[sig]})`;
 
-    if (this.trick.length === 4) {
+    if (this.trick.length === this.playerCount) {
       this.evaluateTrick();
     } else {
       this.currentPlayer = this.nextSeat(player);
@@ -228,8 +240,20 @@ export class TressetteGame {
     this.trick = [];
     this.leadSuit = null;
     this.trickWinner = null;
+    this._lastTrickWinner = winner;
     this.currentPlayer = winner;
     this.tricksPlayed += 1;
+
+    if (this.hands.every((h) => h.length === 0) && this.deck.length === 0) {
+      this.endHand();
+      return true;
+    }
+
+    // 2 giocatori: pesca ed esibizione (vincitore poi perdente)
+    if (this.playerCount === 2 && this.deck.length > 0) {
+      this.drawAndExhibit(winner);
+      return true;
+    }
 
     if (this.hands.every((h) => h.length === 0)) {
       this.endHand();
@@ -241,13 +265,43 @@ export class TressetteGame {
     return true;
   }
 
+  /**
+   * Pesca automatica con esibizione: entrambe le carte pescate sono visibili.
+   */
+  drawAndExhibit(winner) {
+    this._postDrawStarter = winner;
+    const order = [winner, this.nextSeat(winner)];
+    this.revealedDraws = [];
+    for (const p of order) {
+      if (this.deck.length === 0) break;
+      const card = this.deck.pop();
+      this.hands[p].push(card);
+      this.revealedDraws.push({ player: p, card: publicCard(card) });
+    }
+    this.phase = 'showingDraw';
+    this.currentPlayer = -1;
+    this.message = `Pesca ed esibizione · Mazzo: ${this.deck.length}`;
+  }
+
+  acknowledgeDraws() {
+    if (this.phase !== 'showingDraw') return false;
+    this.revealedDraws = [];
+    const starter = this._postDrawStarter ?? 0;
+    this._postDrawStarter = null;
+    this.phase = 'playing';
+    this.currentPlayer = starter;
+    this.message = `Tocca a ${this.playerNames[this.currentPlayer]}`;
+    return true;
+  }
+
   endHand() {
-    // Punti carte (terzi arrotondati per difetto) + 1 ultima presa
     const cardPoints = [0, 0];
-    for (let p = 0; p < 4; p++) {
+    for (let p = 0; p < this.playerCount; p++) {
       cardPoints[this.getTeam(p)] += sumTressettePoints(this.captured[p]);
     }
-    const lastTeam = this.getTeam(this.currentPlayer);
+    const lastWinner =
+      this._lastTrickWinner != null ? this._lastTrickWinner : this.currentPlayer;
+    const lastTeam = this.getTeam(Math.max(0, lastWinner));
     cardPoints[lastTeam] += 1;
 
     this.handPoints = [
@@ -255,7 +309,6 @@ export class TressetteGame {
       cardPoints[1] + this.accusoPoints[1],
     ];
 
-    // Accusi già aggiunti a scores all'inizio: aggiungi solo punti mano
     this.scores[0] += cardPoints[0];
     this.scores[1] += cardPoints[1];
 
@@ -269,10 +322,7 @@ export class TressetteGame {
         this.message = `Patta ${this.scores[0]}-${this.scores[1]}`;
       } else {
         this.winner = this.scores[0] > this.scores[1] ? 0 : 1;
-        this.message =
-          this.winner === 0
-            ? `Squadra A vince ${this.scores[0]}-${this.scores[1]}`
-            : `Squadra B vince ${this.scores[0]}-${this.scores[1]}`;
+        this.message = `${this.teamLabel(this.winner)} vince ${this.scores[0]}-${this.scores[1]}`;
       }
     } else {
       const acc =
@@ -286,10 +336,14 @@ export class TressetteGame {
     return { points: cardPoints, total: [...this.scores] };
   }
 
+  get deckRemaining() {
+    return this.deck.length;
+  }
+
   getState() {
     return {
       gameType: 'tressette',
-      playerCount: 4,
+      playerCount: this.playerCount,
       playerNames: [...this.playerNames],
       hands: this.hands.map((h) => h.map(publicCard)),
       handCounts: this.hands.map((h) => h.length),
@@ -315,9 +369,13 @@ export class TressetteGame {
       tricksPlayed: this.tricksPlayed,
       targetScore: this.targetScore,
       pendingSignal: this.pendingSignal,
+      revealedDraws: this.revealedDraws.map((d) => ({
+        player: d.player,
+        card: d.card,
+      })),
       nextDrawer: null,
-      deckRemaining: 0,
-      faceDownCount: 0,
+      deckRemaining: this.deckRemaining,
+      faceDownCount: this.deckRemaining,
       trump: null,
       trumpCard: null,
     };

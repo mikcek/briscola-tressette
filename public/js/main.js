@@ -61,14 +61,11 @@ class App {
       this.online.openJoin();
     });
 
-    document.getElementById('select-game-type')?.addEventListener('change', (e) => {
-      const count = document.getElementById('select-player-count');
-      if (e.target.value === 'tressette') {
-        count.value = '4';
-        count.disabled = true;
-      } else {
-        count.disabled = false;
-      }
+    document.getElementById('select-game-type')?.addEventListener('change', () => {
+      updateSetupHint();
+    });
+    document.getElementById('select-player-count')?.addEventListener('change', () => {
+      updateSetupHint();
     });
 
     document.getElementById('btn-setup-confirm')?.addEventListener('click', () => {
@@ -77,6 +74,9 @@ class App {
 
     document.getElementById('btn-start-game')?.addEventListener('click', () => {
       this.online.startGame();
+    });
+    document.getElementById('btn-fill-cpu')?.addEventListener('click', () => {
+      this.online.fillCpu();
     });
     document.getElementById('btn-copy-link')?.addEventListener('click', () => {
       this.online.copyLink();
@@ -100,8 +100,26 @@ class App {
   }
 }
 
+function updateSetupHint() {
+  const game = document.getElementById('select-game-type')?.value;
+  const count = document.getElementById('select-player-count')?.value;
+  const hint = document.getElementById('setup-hint');
+  if (!hint) return;
+  if (game === 'tressette' && count === '2') {
+    hint.textContent = 'Tressette 1 vs 1: dopo ogni presa si pesca e si mostra la carta all\'avversario.';
+  } else if (game === 'tressette' && count === '4') {
+    hint.textContent =
+      'Squadre 1+3 vs 2+4. Due amici sulla stessa squadra: posti liberi → «Riempi con CPU».';
+  } else if (game === 'briscola' && count === '4') {
+    hint.textContent = 'Briscola a 4 a squadre. Puoi riempire i posti liberi con CPU.';
+  } else {
+    hint.textContent = 'Crea una stanza e condividi codice o QR.';
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   new App();
+  updateSetupHint();
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
