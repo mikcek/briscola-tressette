@@ -212,6 +212,7 @@ body {
   flex-direction: column;
   justify-content: space-between;
   padding: 1rem 0;
+  overflow: visible;
 }
 
 .opponent-area,
@@ -220,6 +221,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
+  overflow: visible;
 }
 
 .player-info {
@@ -375,6 +377,48 @@ body {
   justify-content: center;
   flex-wrap: wrap;
   padding: 0.5rem;
+}
+
+/*
+  Ventaglio: 15° tra carte adiacenti.
+  Origine di rotazione = asse di simmetria, ~2cm sotto il bordo inferiore.
+*/
+.hand.hand-fan {
+  --fan-pivot: 2cm;
+  --fan-scale: 1;
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: calc(var(--card-h) + var(--fan-pivot) + 0.75rem);
+  margin: 0 auto;
+  padding: 0;
+  overflow: visible;
+  transform: scale(var(--fan-scale));
+  transform-origin: center bottom;
+  flex-shrink: 0;
+}
+
+.hand.hand-fan .card {
+  position: absolute;
+  left: 50%;
+  bottom: var(--fan-pivot);
+  margin-left: calc(var(--card-w) / -2);
+  transform-origin: 50% calc(100% + var(--fan-pivot));
+  transform: rotate(var(--fan-angle, 0deg));
+  transition: transform 0.18s ease, box-shadow 0.15s, filter 0.15s;
+  z-index: var(--fan-z, 1);
+}
+
+.hand.hand-fan .card:hover:not(.disabled):not(.played) {
+  transform: rotate(var(--fan-angle, 0deg)) translateY(-14px);
+  box-shadow: 0 8px 18px var(--card-shadow);
+  z-index: 60;
+}
+
+.seat-south {
+  overflow: visible;
+  width: 100%;
 }
 
 .opponent-hand .card {

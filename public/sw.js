@@ -1,4 +1,4 @@
-const CACHE = 'briscola-shell-v6';
+const CACHE = 'briscola-shell-v7';
 const SHELL = ['/', '/index.html', '/styles.css', '/js/main.js', '/manifest.json'];
 
 self.addEventListener('install', (event) => {

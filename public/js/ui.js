@@ -59,11 +59,65 @@ export function createCardElement(card, options = {}) {
   return el;
 }
 
+/** Gradi tra carte adiacenti nel ventaglio (10 carte → 150°, 3 → 45°, …). */
+const FAN_STEP_DEG = 15;
+/** Pivot sotto il bordo inferiore, sull’asse di simmetria. */
+const FAN_PIVOT = '2cm';
+
+/**
+ * Mano del giocatore a ventaglio (impugnatura reale).
+ * @param {HTMLElement} container
+ * @param {object[]} cards
+ * @param {{ fan?: boolean } & object} options  fan=true di default se .player-hand
+ */
 export function renderHand(container, cards, options = {}) {
+  const useFan =
+    options.fan !== false &&
+    (options.fan === true || container.classList.contains('player-hand'));
+
   container.innerHTML = '';
-  for (const card of cards) {
-    container.appendChild(createCardElement(card, options));
+  container.classList.toggle('hand-fan', useFan);
+  container.style.removeProperty('--fan-scale');
+
+  const n = cards.length;
+  if (!useFan || n === 0) {
+    for (const card of cards) {
+      container.appendChild(createCardElement(card, options));
+    }
+    return;
   }
+
+  const span = (n - 1) * FAN_STEP_DEG;
+  const start = -span / 2;
+
+  container.style.setProperty('--fan-pivot', FAN_PIVOT);
+  container.style.setProperty('--fan-count', String(n));
+
+  cards.forEach((card, i) => {
+    const angle = start + i * FAN_STEP_DEG;
+    const el = createCardElement(card, options);
+    el.style.setProperty('--fan-angle', `${angle}deg`);
+    el.style.setProperty('--fan-z', String(i + 1));
+    container.appendChild(el);
+  });
+
+  // Scala il ventaglio se non entra nella larghezza disponibile
+  requestAnimationFrame(() => fitFanToWidth(container, n, span / 2));
+}
+
+function fitFanToWidth(container, n, maxAbsAngleDeg) {
+  if (!container.isConnected || n < 2) return;
+  const styles = getComputedStyle(document.documentElement);
+  const cardW = parseFloat(styles.getPropertyValue('--card-w')) || 70;
+  const cardH = parseFloat(styles.getPropertyValue('--card-h')) || 122;
+  const pivotPx = 2 * (96 / 2.54); // ≈ 2cm
+  const radius = cardH + pivotPx;
+  const rad = (maxAbsAngleDeg * Math.PI) / 180;
+  const halfW = Math.sin(rad) * radius + Math.cos(rad) * (cardW / 2) + 8;
+  const parent = container.parentElement;
+  const avail = (parent?.clientWidth || container.clientWidth || 320) - 8;
+  const scale = Math.min(1, avail / (halfW * 2));
+  container.style.setProperty('--fan-scale', String(Number.isFinite(scale) ? scale : 1));
 }
 
 export function renderFaceDownHand(container, count, small = false) {
