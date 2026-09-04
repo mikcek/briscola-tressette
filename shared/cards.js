@@ -50,6 +50,21 @@ export const BRISCOLA_RANK_ORDER = ['2', '4', '5', '6', '7', 'fante', 'cavallo',
 
 export const TRESSETTE_RANK_ORDER = ['4', '5', '6', '7', 'fante', 'cavallo', 're', 'asso', '2', '3'];
 
+/** Ordine visualizzazione mano Tressette: semi poi rango (dal più forte). */
+export const TRESSETTE_HAND_SUIT_ORDER = ['denari', 'spade', 'bastoni', 'coppe'];
+export const TRESSETTE_HAND_RANK_ORDER = [
+  '3',
+  '2',
+  'asso',
+  're',
+  'cavallo',
+  'fante',
+  '7',
+  '6',
+  '5',
+  '4',
+];
+
 /** Valore in terzi: Asso=3/3, Tre/Due/Re/Cavallo/Fante=1/3, resto=0 */
 export const TRESSETTE_THIRDS = {
   asso: 3,
@@ -121,6 +136,18 @@ export function briscolaRankIndex(card) {
 
 export function tressetteRankIndex(card) {
   return TRESSETTE_RANK_ORDER.indexOf(card.rank);
+}
+
+/** Ordina la mano per seme (denari→spade→bastoni→coppe) e rango 3→2→A→R→C→F→7→6→5→4. */
+export function sortTressetteHand(cards) {
+  return [...cards].sort((a, b) => {
+    const suitDiff =
+      TRESSETTE_HAND_SUIT_ORDER.indexOf(a.suit) - TRESSETTE_HAND_SUIT_ORDER.indexOf(b.suit);
+    if (suitDiff !== 0) return suitDiff;
+    return (
+      TRESSETTE_HAND_RANK_ORDER.indexOf(a.rank) - TRESSETTE_HAND_RANK_ORDER.indexOf(b.rank)
+    );
+  });
 }
 
 export function compareBriscola(a, b, trumpSuit) {

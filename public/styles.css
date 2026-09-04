@@ -13,6 +13,8 @@
   --radius: 12px;
   --card-w: 70px;
   --card-h: 122px;
+  --card-mini-w: 48px;
+  --card-mini-h: 84px;
 }
 
 * {
@@ -386,6 +388,7 @@ body {
 .hand.hand-fan {
   --fan-pivot: 2cm;
   --fan-scale: 1;
+  --fan-rot: 0deg;
   position: relative;
   display: block;
   width: 100%;
@@ -394,9 +397,38 @@ body {
   margin: 0 auto;
   padding: 0;
   overflow: visible;
-  transform: scale(var(--fan-scale));
-  transform-origin: center bottom;
+  transform: rotate(var(--fan-rot)) scale(var(--fan-scale));
+  transform-origin: center center;
   flex-shrink: 0;
+}
+
+.hand.hand-fan.hand-fan-mini {
+  --fan-pivot: 1.2cm;
+  height: calc(var(--card-mini-h) + var(--fan-pivot) + 0.5rem);
+}
+
+.hand.hand-fan.fan-north {
+  --fan-rot: 180deg;
+}
+
+.hand.hand-fan.fan-east {
+  --fan-rot: 90deg;
+  width: calc(var(--card-mini-h) + var(--fan-pivot) + 0.5rem);
+  height: min(260px, 42vh);
+  max-width: none;
+}
+
+.hand.hand-fan.fan-west {
+  --fan-rot: -90deg;
+  width: calc(var(--card-mini-h) + var(--fan-pivot) + 0.5rem);
+  height: min(260px, 42vh);
+  max-width: none;
+}
+
+/* Avversario 1v1 in alto: ventaglio pieno ruotato */
+.opponent-hand.hand-fan.fan-north {
+  width: 100%;
+  height: calc(var(--card-h) + var(--fan-pivot) + 0.75rem);
 }
 
 .hand.hand-fan .card {
@@ -408,12 +440,38 @@ body {
   transform: rotate(var(--fan-angle, 0deg));
   transition: transform 0.18s ease, box-shadow 0.15s, filter 0.15s;
   z-index: var(--fan-z, 1);
+  cursor: default;
 }
 
-.hand.hand-fan .card:hover:not(.disabled):not(.played) {
+.hand.hand-fan-mini .card {
+  width: var(--card-mini-w);
+  height: var(--card-mini-h);
+  margin-left: calc(var(--card-mini-w) / -2);
+}
+
+.hand.hand-fan.player-hand .card {
+  cursor: pointer;
+}
+
+.hand.hand-fan.player-hand .card:hover:not(.disabled):not(.played) {
   transform: rotate(var(--fan-angle, 0deg)) translateY(-14px);
   box-shadow: 0 8px 18px var(--card-shadow);
   z-index: 60;
+}
+
+.seat {
+  overflow: visible;
+}
+
+.seat-east,
+.seat-west {
+  min-width: calc(var(--card-mini-h) + 1.2cm + 0.5rem);
+  justify-content: center;
+}
+
+.seat-north {
+  width: 100%;
+  overflow: visible;
 }
 
 .seat-south {
@@ -428,8 +486,8 @@ body {
 
 .mini-hand .card,
 .card.mini {
-  width: 48px;
-  height: 84px;
+  width: var(--card-mini-w);
+  height: var(--card-mini-h);
 }
 
 .mini-hand.vertical {
@@ -607,6 +665,8 @@ body {
   :root {
     --card-w: 56px;
     --card-h: 98px;
+    --card-mini-w: 38px;
+    --card-mini-h: 66px;
   }
 
   .game-select {
@@ -616,8 +676,8 @@ body {
 
   .mini-hand .card,
   .card.mini {
-    width: 38px;
-    height: 66px;
+    width: var(--card-mini-w);
+    height: var(--card-mini-h);
   }
 
   #app {

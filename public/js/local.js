@@ -110,7 +110,9 @@ export class LocalApp {
     setMessage('game-message', state.message);
     this.renderDeck(state);
 
-    renderFaceDownHand(document.getElementById('cpu-hand'), state.handCounts[1]);
+    renderFaceDownHand(document.getElementById('cpu-hand'), state.handCounts[1], {
+      facing: 'north',
+    });
     document.getElementById('cpu-count').textContent = state.handCounts[1];
     document.querySelector('#table-briscola .player-name').textContent = 'CPU';
 
@@ -202,7 +204,9 @@ export class LocalApp {
 
     renderDrawReveal('ts2-draw-reveal', state, this.currentGame.playerNames);
 
-    renderFaceDownHand(document.getElementById('ts2-opp-hand'), state.handCounts[1]);
+    renderFaceDownHand(document.getElementById('ts2-opp-hand'), state.handCounts[1], {
+      facing: 'north',
+    });
     renderHand(document.getElementById('ts2-player-hand'), state.hands[0], {
       game: 'tressette',
       disabled: !state.canPlay,
@@ -254,6 +258,8 @@ export class LocalApp {
       3: document.getElementById('hand-west'),
     };
 
+    const facingBySeat = { 1: 'east', 2: 'north', 3: 'west' };
+
     for (let p = 0; p < 4; p++) {
       if (p === 0) {
         renderHand(handEls[p], state.hands[0], {
@@ -263,7 +269,10 @@ export class LocalApp {
         });
         markPlayable('#hand-south', state.playableCardIds);
       } else {
-        renderFaceDownHand(handEls[p], state.handCounts[p], true);
+        renderFaceDownHand(handEls[p], state.handCounts[p], {
+          small: true,
+          facing: facingBySeat[p],
+        });
       }
     }
 

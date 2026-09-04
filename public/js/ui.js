@@ -1,4 +1,4 @@
-import { briscolaPoints, tressettePoints } from '/shared/cards.js';
+import { briscolaPoints, tressettePoints, sortTressetteHand } from '/shared/cards.js';
 
 export function createCardElement(card, options = {}) {
   const {
@@ -61,73 +61,143 @@ export function createCardElement(card, options = {}) {
 
 /** Gradi tra carte adiacenti nel ventaglio (10 carte → 150°, 3 → 45°, …). */
 const FAN_STEP_DEG = 15;
-/** Pivot sotto il bordo inferiore, sull’asse di simmetria. */
 const FAN_PIVOT = '2cm';
+const FAN_PIVOT_MINI = '1.2cm';
+
+/**
+ * @param {HTMLElement} container
+ * @param {HTMLElement[]} cardEls
+ * @param {{ facing?: string, small?: boolean }} options
+ */
+function layoutFan(container, cardEls, options = {}) {
+  const facing = options.facing || 'south';
+  const small = !!options.small;
+  const n = cardEls.length;
+
+  container.classList.add('hand-fan');
+  container.classList.toggle('hand-fan-mini', small);
+  container.classList.remove('fan-south', 'fan-north', 'fan-east', 'fan-west');
+  container.classList.add(`fan-${facing}`);
+  container.style.removeProperty('--fan-scale');
+  container.style.setProperty('--fan-pivot', small ? FAN_PIVOT_MINI : FAN_PIVOT);
+  container.style.setProperty('--fan-count', String(n));
+
+  if (n === 0) return;
+
+  const span = (n - 1) * FAN_STEP_DEG;
+  const start = -span / 2;
+
+  cardEls.forEach((el, i) => {
+    const angle = start + i * FAN_STEP_DEG;
+    el.style.setProperty('--fan-angle', `${angle}deg`);
+    el.style.setProperty('--fan-z', String(i + 1));
+    container.appendChild(el);
+  });
+
+  requestAnimationFrame(() => fitFanToWidth(container, n, span / 2, { facing, small }));
+}
 
 /**
  * Mano del giocatore a ventaglio (impugnatura reale).
  * @param {HTMLElement} container
  * @param {object[]} cards
- * @param {{ fan?: boolean } & object} options  fan=true di default se .player-hand
+ * @param {{ fan?: boolean, facing?: string } & object} options
  */
 export function renderHand(container, cards, options = {}) {
   const useFan =
     options.fan !== false &&
     (options.fan === true || container.classList.contains('player-hand'));
 
+  let list = cards;
+  if (options.game === 'tressette') {
+    list = sortTressetteHand(cards);
+  }
+
   container.innerHTML = '';
-  container.classList.toggle('hand-fan', useFan);
+  container.classList.remove(
+    'hand-fan',
+    'hand-fan-mini',
+    'fan-south',
+    'fan-north',
+    'fan-east',
+    'fan-west'
+  );
   container.style.removeProperty('--fan-scale');
 
-  const n = cards.length;
-  if (!useFan || n === 0) {
-    for (const card of cards) {
+  if (!useFan || list.length === 0) {
+    for (const card of list) {
       container.appendChild(createCardElement(card, options));
     }
     return;
   }
 
-  const span = (n - 1) * FAN_STEP_DEG;
-  const start = -span / 2;
-
-  container.style.setProperty('--fan-pivot', FAN_PIVOT);
-  container.style.setProperty('--fan-count', String(n));
-
-  cards.forEach((card, i) => {
-    const angle = start + i * FAN_STEP_DEG;
-    const el = createCardElement(card, options);
-    el.style.setProperty('--fan-angle', `${angle}deg`);
-    el.style.setProperty('--fan-z', String(i + 1));
-    container.appendChild(el);
+  const els = list.map((card) => createCardElement(card, options));
+  layoutFan(container, els, {
+    facing: options.facing || 'south',
+    small: !!options.small,
   });
-
-  // Scala il ventaglio se non entra nella larghezza disponibile
-  requestAnimationFrame(() => fitFanToWidth(container, n, span / 2));
 }
 
-function fitFanToWidth(container, n, maxAbsAngleDeg) {
+function fitFanToWidth(container, n, maxAbsAngleDeg, options = {}) {
   if (!container.isConnected || n < 2) return;
+  const small = !!options.small;
+  const facing = options.facing || 'south';
   const styles = getComputedStyle(document.documentElement);
-  const cardW = parseFloat(styles.getPropertyValue('--card-w')) || 70;
-  const cardH = parseFloat(styles.getPropertyValue('--card-h')) || 122;
-  const pivotPx = 2 * (96 / 2.54); // ≈ 2cm
+  const cardW = small
+    ? parseFloat(styles.getPropertyValue('--card-mini-w')) || 48
+    : parseFloat(styles.getPropertyValue('--card-w')) || 70;
+  const cardH = small
+    ? parseFloat(styles.getPropertyValue('--card-mini-h')) || 84
+    : parseFloat(styles.getPropertyValue('--card-h')) || 122;
+  const pivotPx = (small ? 1.2 : 2) * (96 / 2.54);
   const radius = cardH + pivotPx;
   const rad = (maxAbsAngleDeg * Math.PI) / 180;
   const halfW = Math.sin(rad) * radius + Math.cos(rad) * (cardW / 2) + 8;
   const parent = container.parentElement;
-  const avail = (parent?.clientWidth || container.clientWidth || 320) - 8;
+  const avail =
+    facing === 'east' || facing === 'west'
+      ? (parent?.clientHeight || 240) - 8
+      : (parent?.clientWidth || container.clientWidth || 320) - 8;
   const scale = Math.min(1, avail / (halfW * 2));
   container.style.setProperty('--fan-scale', String(Number.isFinite(scale) ? scale : 1));
 }
 
-export function renderFaceDownHand(container, count, small = false) {
+/**
+ * Mano coperta a ventaglio (compagni / avversari).
+ * @param {HTMLElement} container
+ * @param {number} count
+ * @param {boolean|{ small?: boolean, facing?: 'south'|'north'|'east'|'west' }} options
+ */
+export function renderFaceDownHand(container, count, options = {}) {
+  const opts = typeof options === 'boolean' ? { small: options } : options || {};
+  const small = !!opts.small;
+  const facing = opts.facing || 'south';
+  const useFan = opts.fan !== false;
+
   container.innerHTML = '';
-  for (let i = 0; i < count; i++) {
+  container.classList.remove(
+    'hand-fan',
+    'hand-fan-mini',
+    'fan-south',
+    'fan-north',
+    'fan-east',
+    'fan-west'
+  );
+
+  const n = Math.max(0, count | 0);
+  const els = [];
+  for (let i = 0; i < n; i++) {
     const el = document.createElement('div');
-    el.className = 'card card-back';
-    if (small) el.classList.add('mini');
-    container.appendChild(el);
+    el.className = 'card card-back' + (small ? ' mini' : '');
+    els.push(el);
   }
+
+  if (!useFan || n === 0) {
+    for (const el of els) container.appendChild(el);
+    return;
+  }
+
+  layoutFan(container, els, { facing, small });
 }
 
 export function renderTrick(container, trick, playerNames, game) {

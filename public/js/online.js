@@ -274,7 +274,9 @@ export class OnlineApp {
 
     this.renderDrawReveal('ts2-draw-reveal', state);
 
-    renderFaceDownHand(document.getElementById('ts2-opp-hand'), state.handCounts[opp]);
+    renderFaceDownHand(document.getElementById('ts2-opp-hand'), state.handCounts[opp], {
+      facing: 'north',
+    });
     renderHand(document.getElementById('ts2-player-hand'), state.hands[me], {
       game: 'tressette',
       disabled: !state.canPlay,
@@ -341,7 +343,9 @@ export class OnlineApp {
     document.querySelector('#table-briscola .opponent-area .player-name').textContent =
       state.playerNames[opp];
     document.getElementById('cpu-count').textContent = state.handCounts[opp];
-    renderFaceDownHand(document.getElementById('cpu-hand'), state.handCounts[opp]);
+    renderFaceDownHand(document.getElementById('cpu-hand'), state.handCounts[opp], {
+      facing: 'north',
+    });
 
     document.querySelector('#table-briscola .player-area .player-name').textContent =
       state.playerNames[me];
@@ -380,6 +384,8 @@ export class OnlineApp {
       return `#${tableId} .seat-${names[relSeat]} .seat-name`;
     };
 
+    const facingRel = ['south', 'east', 'north', 'west'];
+
     for (let r = 0; r < 4; r++) {
       const abs = absFromRel(r);
       const nameEl = document.querySelector(nameSel(r));
@@ -397,7 +403,10 @@ export class OnlineApp {
         });
         markPlayable(`#${handId(r)}`, state.playableCardIds);
       } else {
-        renderFaceDownHand(handEl, state.handCounts[abs], r !== 0);
+        renderFaceDownHand(handEl, state.handCounts[abs], {
+          small: true,
+          facing: facingRel[r],
+        });
       }
     }
 
