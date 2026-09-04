@@ -1,14 +1,9 @@
-# Build Command su Render: lasciare VUOTO oppure usare: npm install
-# Start Command su Render: npm start
-#
-# Se il Build Command è "npm start", il deploy FALLISCE (il server non è un build).
-
 services:
   - type: web
     name: briscola-tressette
     runtime: node
     plan: free
     region: frankfurt
-    buildCommand: npm install
+    buildCommand: npm install --omit=dev --no-audit --no-fund
     startCommand: npm start
     healthCheckPath: /health
