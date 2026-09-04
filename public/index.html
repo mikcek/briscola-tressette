@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0f3d26">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Briscola & Tressette</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/styles.css?v=4">
+</head>
+<body>
+  <div id="app">
+    <!-- HOME -->
+    <div id="home-screen" class="screen active">
+      <header class="menu-header">
+        <h1>Briscola & Tressette</h1>
+        <p>Gioca sul posto o online con gli amici</p>
+      </header>
+      <div class="game-cards">
+        <button class="game-select" id="btn-mode-local" type="button">
+          <span class="game-icon">1</span>
+          <h2>Locale</h2>
+          <p>Allenati contro la CPU</p>
+        </button>
+        <button class="game-select" id="btn-mode-online" type="button">
+          <span class="game-icon">4</span>
+          <h2>Online</h2>
+          <p>Stanza con codice · 2 o 4 giocatori</p>
+        </button>
+      </div>
+    </div>
+
+    <!-- LOCAL MENU -->
+    <div id="local-menu-screen" class="screen">
+      <header class="game-header">
+        <button class="btn-icon" data-back="home" type="button">←</button>
+        <h2>Modalità locale</h2>
+        <span></span>
+      </header>
+      <div class="game-cards">
+        <button class="game-select local-game-select" data-game="briscola" type="button">
+          <h2>Briscola</h2>
+          <p>Tu vs CPU · 61 punti</p>
+        </button>
+        <button class="game-select local-game-select" data-game="tressette" type="button">
+          <h2>Tressette</h2>
+          <p>4 posti · partner e CPU</p>
+        </button>
+      </div>
+    </div>
+
+    <!-- ONLINE MENU -->
+    <div id="online-menu-screen" class="screen">
+      <header class="game-header">
+        <button class="btn-icon" data-back="home" type="button">←</button>
+        <h2>Online</h2>
+        <span></span>
+      </header>
+      <div class="game-cards">
+        <button class="game-select" id="btn-online-create" type="button">
+          <h2>Crea stanza</h2>
+          <p>Ottieni un codice da condividere</p>
+        </button>
+        <button class="game-select" id="btn-online-join" type="button">
+          <h2>Entra</h2>
+          <p>Usa il codice degli amici</p>
+        </button>
+      </div>
+    </div>
+
+    <!-- ONLINE SETUP -->
+    <div id="online-setup-screen" class="screen">
+      <header class="game-header">
+        <button class="btn-icon" data-back="home" type="button">←</button>
+        <h2 id="setup-mode-title">Stanza</h2>
+        <span></span>
+      </header>
+      <div class="form-panel">
+        <label>Nickname
+          <input id="input-nickname" maxlength="16" placeholder="Il tuo nome" autocomplete="nickname">
+        </label>
+        <div id="create-fields">
+          <label>Gioco
+            <select id="select-game-type">
+              <option value="briscola">Briscola</option>
+              <option value="tressette">Tressette</option>
+            </select>
+          </label>
+          <label>Giocatori
+            <select id="select-player-count">
+              <option value="2">2</option>
+              <option value="4">4</option>
+            </select>
+          </label>
+        </div>
+        <div id="join-fields" class="hidden">
+          <label>Codice stanza
+            <input id="input-room-code" maxlength="8" placeholder="AB7K2Q" autocomplete="off" style="text-transform:uppercase">
+          </label>
+        </div>
+        <p id="online-error" class="form-error hidden"></p>
+        <button id="btn-setup-confirm" class="btn-primary" type="button">Continua</button>
+      </div>
+    </div>
+
+    <!-- LOBBY -->
+    <div id="lobby-screen" class="screen">
+      <header class="game-header">
+        <button class="btn-icon" id="btn-leave-lobby" type="button">←</button>
+        <h2>Lobby</h2>
+        <button class="btn-secondary" id="btn-copy-link" type="button">Copia link</button>
+      </header>
+      <div class="lobby-panel">
+        <p id="lobby-meta" class="lobby-meta"></p>
+        <div class="lobby-code-wrap">
+          <span>Codice</span>
+          <strong id="lobby-code">------</strong>
+        </div>
+        <img id="lobby-qr" class="lobby-qr" width="160" height="160" alt="">
+        <input id="lobby-link" class="lobby-link" readonly>
+        <div id="lobby-seats" class="lobby-seats"></div>
+        <button id="btn-start-game" class="btn-primary" type="button">Avvia partita</button>
+      </div>
+    </div>
+
+    <!-- GAME -->
+    <div id="game-screen" class="screen">
+      <header class="game-header">
+        <button id="btn-back" class="btn-icon" title="Esci" type="button">←</button>
+        <h2 id="game-title">Briscola</h2>
+        <button id="btn-new-hand" class="btn-secondary" type="button">Nuova mano</button>
+      </header>
+
+      <div class="scoreboard">
+        <div class="score-team">
+          <span class="team-label" id="label-team-a">Tu</span>
+          <span class="team-score" id="score-a">0</span>
+        </div>
+        <div class="score-info" id="score-info"></div>
+        <div class="score-team">
+          <span class="team-label" id="label-team-b">CPU</span>
+          <span class="team-score" id="score-b">0</span>
+        </div>
+      </div>
+
+      <!-- Briscola 2 -->
+      <div id="table-briscola" class="table hidden">
+        <div class="opponent-area">
+          <div class="player-info">
+            <span class="player-name">CPU</span>
+            <span class="card-count" id="cpu-count">3</span>
+          </div>
+          <div class="hand opponent-hand" id="cpu-hand"></div>
+        </div>
+        <div class="play-area">
+          <div class="deck-area" id="deck-area">
+            <div class="deck-stack" id="deck-stack" title="Clicca per pescare">
+              <div class="deck-pile" id="deck-pile"></div>
+              <div class="trump-slot" id="trump-card"></div>
+            </div>
+            <span class="trump-label" id="trump-label">Briscola</span>
+            <span class="deck-count" id="deck-count"></span>
+          </div>
+          <div class="trick-area" id="trick-area"></div>
+          <div class="message" id="game-message"></div>
+        </div>
+        <div class="player-area">
+          <div class="hand player-hand" id="player-hand"></div>
+          <div class="player-info"><span class="player-name">Tu</span></div>
+        </div>
+      </div>
+
+      <!-- Briscola 4 -->
+      <div id="table-briscola-4" class="table hidden">
+        <div class="tressette-layout">
+          <div class="seat seat-north">
+            <span class="seat-name">Nord</span>
+            <div class="hand mini-hand" id="b4-hand-north"></div>
+          </div>
+          <div class="middle-row">
+            <div class="seat seat-west">
+              <span class="seat-name">Ovest</span>
+              <div class="hand mini-hand vertical" id="b4-hand-west"></div>
+            </div>
+            <div class="play-area tressette-center">
+              <div class="deck-area" id="b4-deck-area">
+                <div class="deck-stack">
+                  <div class="deck-pile" id="b4-deck-pile"></div>
+                  <div class="trump-slot" id="b4-trump-card"></div>
+                </div>
+                <span class="trump-label" id="b4-trump-label">Briscola</span>
+                <span class="deck-count" id="b4-deck-count"></span>
+              </div>
+              <div class="trick-area" id="b4-trick-area"></div>
+              <div class="message" id="b4-game-message"></div>
+            </div>
+            <div class="seat seat-east">
+              <span class="seat-name">Est</span>
+              <div class="hand mini-hand vertical" id="b4-hand-east"></div>
+            </div>
+          </div>
+          <div class="seat seat-south">
+            <div class="hand player-hand" id="b4-hand-south"></div>
+            <span class="seat-name">Sud</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tressette 4 -->
+      <div id="table-tressette" class="table hidden">
+        <div class="tressette-layout">
+          <div class="seat seat-north" data-seat="2">
+            <span class="seat-name">Partner</span>
+            <div class="hand mini-hand" id="hand-north"></div>
+          </div>
+          <div class="middle-row">
+            <div class="seat seat-west" data-seat="3">
+              <span class="seat-name">Avv. 1</span>
+              <div class="hand mini-hand vertical" id="hand-west"></div>
+            </div>
+            <div class="play-area tressette-center">
+              <div class="trick-area" id="trick-area-ts"></div>
+              <div class="message" id="game-message-ts"></div>
+            </div>
+            <div class="seat seat-east" data-seat="1">
+              <span class="seat-name">Avv. 2</span>
+              <div class="hand mini-hand vertical" id="hand-east"></div>
+            </div>
+          </div>
+          <div class="seat seat-south" data-seat="0">
+            <div class="hand player-hand" id="hand-south"></div>
+            <span class="seat-name">Tu</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="hand-result" class="overlay hidden">
+      <div class="overlay-content">
+        <h3 id="result-title">Mano terminata</h3>
+        <p id="result-detail"></p>
+        <button id="btn-continue" class="btn-primary" type="button">Continua</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/main.js?v=4"></script>
+</body>
+</html>
