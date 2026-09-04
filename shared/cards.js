@@ -50,10 +50,21 @@ export const BRISCOLA_RANK_ORDER = ['2', '4', '5', '6', '7', 'fante', 'cavallo',
 
 export const TRESSETTE_RANK_ORDER = ['4', '5', '6', '7', 'fante', 'cavallo', 're', 'asso', '2', '3'];
 
+/** Valore in terzi: Asso=3/3, Tre/Due/Re/Cavallo/Fante=1/3, resto=0 */
+export const TRESSETTE_THIRDS = {
+  asso: 3,
+  '3': 1,
+  '2': 1,
+  re: 1,
+  cavallo: 1,
+  fante: 1,
+};
+
+/** Compat UI: punti decimali (⅓ per figure/carichi, 1 per asso) */
 export const TRESSETTE_POINTS = {
   asso: 1,
-  '2': 1,
-  '3': 1,
+  '3': 1 / 3,
+  '2': 1 / 3,
   re: 1 / 3,
   cavallo: 1 / 3,
   fante: 1 / 3,
@@ -100,6 +111,10 @@ export function tressettePoints(card) {
   return TRESSETTE_POINTS[card.rank] ?? 0;
 }
 
+export function tressetteThirds(card) {
+  return TRESSETTE_THIRDS[card.rank] ?? 0;
+}
+
 export function briscolaRankIndex(card) {
   return BRISCOLA_RANK_ORDER.indexOf(card.rank);
 }
@@ -132,9 +147,41 @@ export function sumBriscolaPoints(cards) {
   return cards.reduce((sum, c) => sum + briscolaPoints(c), 0);
 }
 
+/** Punti carte Tressette: somma terzi poi arrotonda per difetto. */
 export function sumTressettePoints(cards) {
-  const raw = cards.reduce((sum, c) => sum + tressettePoints(c), 0);
-  return Math.floor(raw + (raw % 1 >= 0.34 ? 1 : 0));
+  const thirds = cards.reduce((sum, c) => sum + tressetteThirds(c), 0);
+  return Math.floor(thirds / 3);
+}
+
+/**
+ * Rileva accusi in una mano (regolamento ufficiale).
+ * Restituisce { points, labels[] }.
+ */
+export function detectAccusi(hand) {
+  const labels = [];
+  let points = 0;
+
+  for (const suit of SUITS) {
+    const ranks = new Set(hand.filter((c) => c.suit === suit).map((c) => c.rank));
+    if (ranks.has('asso') && ranks.has('2') && ranks.has('3')) {
+      labels.push(`Napoletana di ${SUIT_NAMES[suit]}`);
+      points += 3;
+    }
+  }
+
+  for (const rank of ['asso', '2', '3']) {
+    const count = hand.filter((c) => c.rank === rank).length;
+    const name = rank === 'asso' ? 'Assi' : rank === '2' ? 'Due' : 'Tre';
+    if (count === 4) {
+      labels.push(`Super Bongioco (${name})`);
+      points += 4;
+    } else if (count === 3) {
+      labels.push(`Bongioco (${name})`);
+      points += 3;
+    }
+  }
+
+  return { points, labels };
 }
 
 export function resetCardIds() {

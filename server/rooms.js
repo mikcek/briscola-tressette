@@ -189,11 +189,27 @@ export class RoomManager {
     return room;
   }
 
-  playCard(playerId, cardId) {
+  playCard(playerId, cardId, signal = null) {
     const { room, seat } = this.requirePlayingSeat(playerId);
-    if (!room.game.playCard(seat.seatIndex, cardId)) {
-      throw new Error('Mossa non valida');
+    const ok =
+      room.gameType === 'tressette'
+        ? room.game.playCard(seat.seatIndex, cardId, signal)
+        : room.game.playCard(seat.seatIndex, cardId);
+    if (!ok) throw new Error('Mossa non valida');
+    room.updatedAt = Date.now();
+    return room;
+  }
+
+  setSignal(playerId, signal) {
+    const { room, seat } = this.requirePlayingSeat(playerId);
+    if (room.gameType !== 'tressette') throw new Error('Segnali solo nel Tressette');
+    if (typeof room.game.setPendingSignal !== 'function') {
+      throw new Error('Segnali non supportati');
     }
+    if (room.game.currentPlayer !== seat.seatIndex) {
+      throw new Error('Non è il tuo turno');
+    }
+    room.game.setPendingSignal(signal);
     room.updatedAt = Date.now();
     return room;
   }

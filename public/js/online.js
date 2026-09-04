@@ -10,6 +10,7 @@ import {
   highlightSeat,
   createCardElement,
   showScreen,
+  renderSignalBar,
 } from './ui.js';
 import { SUIT_NAMES } from '/shared/cards.js';
 
@@ -23,6 +24,7 @@ export class OnlineApp {
     this.state = null;
     this._showingResult = false;
     this._bound = false;
+    this.selectedSignal = null;
   }
 
   async ensureConnected() {
@@ -210,10 +212,32 @@ export class OnlineApp {
 
     if (isBriscola && !is4) this.renderBriscola2();
     else if (isBriscola && is4) this.renderFourTable('table-briscola-4', 'briscola');
-    else this.renderFourTable('table-tressette', 'tressette');
+    else {
+      this.renderFourTable('table-tressette', 'tressette');
+      this.renderTressetteExtras();
+    }
 
     if ((this.state.handOver || this.state.gameOver) && !this._showingResult) {
       this.showResult();
+    }
+  }
+
+  renderTressetteExtras() {
+    const state = this.state;
+    renderSignalBar(document.getElementById('tressette-signals'), {
+      enabled: !!state.canSignal,
+      selected: this.selectedSignal,
+      onSelect: (sig) => {
+        this.selectedSignal = sig;
+        this.net.send({ type: 'setSignal', signal: sig });
+        this.renderTressetteExtras();
+      },
+    });
+    const log = document.getElementById('tressette-accusi');
+    if (log) {
+      log.textContent = state.accusoLog?.length
+        ? `Accusi: ${state.accusoLog.join(' · ')}`
+        : '';
     }
   }
 
@@ -362,7 +386,12 @@ export class OnlineApp {
   }
 
   playCard(cardId) {
-    this.net.send({ type: 'playCard', cardId });
+    const payload = { type: 'playCard', cardId };
+    if (this.state?.gameType === 'tressette' && this.selectedSignal) {
+      payload.signal = this.selectedSignal;
+    }
+    this.net.send(payload);
+    this.selectedSignal = null;
   }
 
   draw() {

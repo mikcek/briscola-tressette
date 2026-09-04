@@ -11,6 +11,7 @@ import {
   highlightSeat,
   createCardElement,
   showScreen,
+  renderSignalBar,
 } from './ui.js';
 
 const TRICK_REVEAL_MS = 1600;
@@ -26,6 +27,7 @@ export class LocalApp {
     this.trickTimer = null;
     this.drawTimer = null;
     this._showingResult = false;
+    this.selectedSignal = null;
   }
 
   clearTimers() {
@@ -160,7 +162,11 @@ export class LocalApp {
 
   renderTressette() {
     const state = this.currentGame.getViewFor(0);
-    updateScoreboard(state.scores, ['Noi', 'Loro'], 'Prima a 21');
+    updateScoreboard(
+      state.scores,
+      ['Noi', 'Loro'],
+      `Prima a ${state.targetScore}`
+    );
     setMessage('game-message-ts', state.message);
     highlightSeat(state.currentPlayer);
 
@@ -184,13 +190,41 @@ export class LocalApp {
       }
     }
 
-    renderTrick(document.getElementById('trick-area-ts'), state.trick, state.playerNames, 'tressette');
+    renderTrick(
+      document.getElementById('trick-area-ts'),
+      state.trick,
+      state.playerNames,
+      'tressette'
+    );
+
+    renderSignalBar(document.getElementById('tressette-signals'), {
+      enabled: !!state.canSignal,
+      selected: this.selectedSignal,
+      onSelect: (sig) => {
+        this.selectedSignal = sig;
+        this.currentGame.setPendingSignal(sig);
+        this.renderTressette();
+      },
+    });
+
+    const log = document.getElementById('tressette-accusi');
+    if (log) {
+      log.textContent = state.accusoLog?.length
+        ? `Accusi: ${state.accusoLog.join(' · ')}`
+        : '';
+    }
+
     if (state.handOver && !this._showingResult) this.showHandResult(state);
   }
 
   onPlayerPlay(card) {
     if (!this.currentGame.canPlay(0, card.id)) return;
-    this.currentGame.playCard(0, card.id);
+    if (this.gameType === 'tressette') {
+      this.currentGame.playCard(0, card.id, this.selectedSignal);
+      this.selectedSignal = null;
+    } else {
+      this.currentGame.playCard(0, card.id);
+    }
     this.render();
     this.advanceFlow();
   }

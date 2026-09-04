@@ -80,9 +80,40 @@ export function renderTrick(container, trick, playerNames, game) {
   container.innerHTML = '';
   for (const entry of trick) {
     const name = playerNames?.[entry.player] ?? `P${entry.player + 1}`;
-    container.appendChild(
-      createCardElement(entry.card, { game, playerTag: name })
-    );
+    const signalTag = entry.signal
+      ? { busso: 'Busso', volo: 'Volo', striscio: 'Striscio' }[entry.signal]
+      : null;
+    const el = createCardElement(entry.card, {
+      game,
+      playerTag: signalTag ? `${name} · ${signalTag}` : name,
+    });
+    container.appendChild(el);
+  }
+}
+
+export function renderSignalBar(container, { enabled, selected, onSelect }) {
+  if (!container) return;
+  container.innerHTML = '';
+  container.classList.toggle('hidden', !enabled);
+  if (!enabled) return;
+
+  const title = document.createElement('span');
+  title.className = 'signal-label';
+  title.textContent = 'Segnale:';
+  container.appendChild(title);
+
+  for (const [id, label] of [
+    [null, 'Nessuno'],
+    ['busso', 'Busso'],
+    ['volo', 'Volo'],
+    ['striscio', 'Striscio'],
+  ]) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'signal-btn' + ((selected || null) === id ? ' active' : '');
+    btn.textContent = label;
+    btn.addEventListener('click', () => onSelect?.(id));
+    container.appendChild(btn);
   }
 }
 

@@ -69,6 +69,8 @@ function handleMessage(ws, msg) {
       return onStart(ws);
     case 'playCard':
       return onPlay(ws, msg);
+    case 'setSignal':
+      return onSignal(ws, msg);
     case 'draw':
       return onDraw(ws);
     case 'rematch':
@@ -152,9 +154,15 @@ function onStart(ws) {
 
 function onPlay(ws, msg) {
   ensurePlayer(ws);
-  const room = rooms.playCard(ws.playerId, Number(msg.cardId));
+  const room = rooms.playCard(ws.playerId, Number(msg.cardId), msg.signal || null);
   pushGameState(room);
   maybeScheduleTrick(room);
+}
+
+function onSignal(ws, msg) {
+  ensurePlayer(ws);
+  const room = rooms.setSignal(ws.playerId, msg.signal || null);
+  pushGameState(room);
 }
 
 function onDraw(ws) {
