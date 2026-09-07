@@ -227,3 +227,148 @@ export function publicCard(card) {
     image: card.image,
   };
 }
+
+/* ——— Scopa ——— */
+
+const SCOPA_RANK_VALUE = {
+  asso: 1,
+  '2': 2,
+  '3': 3,
+  '4': 4,
+  '5': 5,
+  '6': 6,
+  '7': 7,
+  fante: 8,
+  cavallo: 9,
+  re: 10,
+};
+
+const PRIMIERA_VALUE = {
+  '7': 21,
+  '6': 18,
+  asso: 16,
+  '5': 15,
+  '4': 14,
+  '3': 13,
+  '2': 12,
+  fante: 10,
+  cavallo: 10,
+  re: 10,
+};
+
+export function isSettebello(card) {
+  return card?.suit === 'denari' && card?.rank === '7';
+}
+
+/** Valore numerico per le prese (1–10). */
+export function scopaCaptureValue(card) {
+  return SCOPA_RANK_VALUE[card?.rank] ?? 0;
+}
+
+export function primieraValue(card) {
+  return PRIMIERA_VALUE[card?.rank] ?? 0;
+}
+
+/**
+ * Primiera: somma del miglior valore per ogni seme.
+ * Restituisce { score, complete } — complete=false se manca un seme.
+ */
+export function computePrimiera(cards) {
+  const best = { coppe: 0, denari: 0, bastoni: 0, spade: 0 };
+  for (const c of cards) {
+    const v = primieraValue(c);
+    if (v > best[c.suit]) best[c.suit] = v;
+  }
+  const complete = SUITS.every((s) => best[s] > 0);
+  const score = complete ? SUITS.reduce((sum, s) => sum + best[s], 0) : 0;
+  return { score, complete, bySuit: best };
+}
+
+/**
+ * Buongioco sulla mano di 3 carte.
+ * @returns {{ points: 0|2|3|7, label: string|null }}
+ */
+export function detectBuongioco(hand) {
+  if (!hand || hand.length !== 3) return { points: 0, label: null };
+
+  const values = hand.map(scopaCaptureValue);
+  const sum = values.reduce((a, b) => a + b, 0);
+  const ranks = hand.map((c) => c.rank);
+  const uniq = new Set(ranks).size;
+
+  if (uniq === 1) {
+    return { points: 7, label: 'Buongioco (3 uguali)' };
+  }
+  if (sum < 9 && uniq === 2) {
+    return { points: 3, label: 'Buongioco (2 uguali, somma < 9)' };
+  }
+  if (sum < 9 && uniq === 3) {
+    return { points: 2, label: 'Buongioco (3 diverse, somma < 9)' };
+  }
+  return { points: 0, label: null };
+}
+
+/**
+ * Tutti i sottoinsiemi non vuoti di `table` la cui somma valori = target.
+ * Restituisce array di array di carte (riferimenti).
+ */
+export function findSumSubsets(table, target) {
+  const results = [];
+  const n = table.length;
+  const limit = 1 << n;
+  for (let mask = 1; mask < limit; mask++) {
+    let sum = 0;
+    const subset = [];
+    for (let i = 0; i < n; i++) {
+      if (mask & (1 << i)) {
+        sum += scopaCaptureValue(table[i]);
+        subset.push(table[i]);
+        if (sum > target) break;
+      }
+    }
+    if (sum === target) results.push(subset);
+  }
+  return results;
+}
+
+/**
+ * Prese legali per una carta giocata sul tavolo.
+ * Obbligo di presa singola se esiste carta di uguale valore.
+ * Per Settebello (jolly): se jollyValue è dato usa quel valore; altrimenti unisce tutte le prese per valori 1–10.
+ * @returns {{ captures: object[][], isJolly: boolean }}
+ */
+export function getScopaLegalCaptures(table, card, jollyValue = null) {
+  if (!card) return { captures: [], isJolly: false };
+  const jolly = isSettebello(card);
+
+  if (jolly && jollyValue == null) {
+    const seen = new Map();
+    for (let v = 1; v <= 10; v++) {
+      const { captures } = getScopaLegalCaptures(table, card, v);
+      for (const cap of captures) {
+        const key = cap
+          .map((c) => c.id)
+          .sort((a, b) => a - b)
+          .join(',');
+        if (!seen.has(key)) seen.set(key, cap);
+      }
+    }
+    return { captures: [...seen.values()], isJolly: true };
+  }
+
+  const value = jolly ? Number(jollyValue) : scopaCaptureValue(card);
+  if (!value || value < 1 || value > 10) return { captures: [], isJolly: jolly };
+
+  const singles = table.filter((c) => scopaCaptureValue(c) === value);
+  if (singles.length > 0) {
+    return {
+      captures: singles.map((c) => [c]),
+      isJolly: jolly,
+    };
+  }
+
+  return {
+    captures: findSumSubsets(table, value),
+    isJolly: jolly,
+  };
+}

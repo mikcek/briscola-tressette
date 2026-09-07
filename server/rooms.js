@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
 import { BriscolaGame } from '../shared/briscola.js';
 import { TressetteGame } from '../shared/tressette.js';
+import { ScopaGame } from '../shared/scopa.js';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const ROOM_TTL_MS = 60 * 60 * 1000;
@@ -23,7 +24,9 @@ export class RoomManager {
   }
 
   createRoom({ gameType, playerCount, nickname, playerId }) {
-    const type = gameType === 'tressette' ? 'tressette' : 'briscola';
+    let type = 'briscola';
+    if (gameType === 'tressette') type = 'tressette';
+    else if (gameType === 'scopa') type = 'scopa';
     const seatsNeeded = Number(playerCount) === 4 ? 4 : 2;
 
     const room = {
@@ -180,6 +183,8 @@ export class RoomManager {
     const names = room.seats.map((s) => s.nickname || `P${s.seatIndex + 1}`);
     if (room.gameType === 'tressette') {
       room.game = new TressetteGame(names, { playerCount: room.playerCount });
+    } else if (room.gameType === 'scopa') {
+      room.game = new ScopaGame(names, { playerCount: room.playerCount, targetScore: 21 });
     } else {
       room.game = new BriscolaGame(room.playerCount, names);
     }
@@ -198,7 +203,10 @@ export class RoomManager {
     const names = room.seats.map((s) => s.nickname || `P${s.seatIndex + 1}`);
     room.game.playerNames = names;
     if (room.game.gameOver || room.game.handOver) {
-      if (room.gameType === 'tressette' && !room.game.gameOver) {
+      if (
+        (room.gameType === 'tressette' || room.gameType === 'scopa') &&
+        !room.game.gameOver
+      ) {
         room.game.startHand();
       } else {
         room.game.startGame();
@@ -211,24 +219,36 @@ export class RoomManager {
     return room;
   }
 
-  playCard(playerId, cardId, signal = null) {
+  playCard(playerId, cardId, extra = null) {
     const { room, seat } = this.requirePlayingSeat(playerId);
     if (seat.isCpu) throw new Error('Posto CPU');
-    const ok =
-      room.gameType === 'tressette'
-        ? room.game.playCard(seat.seatIndex, cardId, signal)
-        : room.game.playCard(seat.seatIndex, cardId);
+    let ok = false;
+    if (room.gameType === 'tressette') {
+      ok = room.game.playCard(seat.seatIndex, cardId, extra);
+    } else if (room.gameType === 'scopa') {
+      const opts =
+        extra && typeof extra === 'object' && !Array.isArray(extra)
+          ? extra
+          : { tableCardIds: [], jollyValue: null };
+      ok = room.game.playCard(seat.seatIndex, cardId, opts);
+    } else {
+      ok = room.game.playCard(seat.seatIndex, cardId);
+    }
     if (!ok) throw new Error('Mossa non valida');
     room.updatedAt = Date.now();
     return room;
   }
 
-  playCpuCard(room, seatIndex, cardId, signal = null) {
+  playCpuCard(room, seatIndex, cardId, extra = null) {
     if (!room?.game) return false;
-    const ok =
-      room.gameType === 'tressette'
-        ? room.game.playCard(seatIndex, cardId, signal)
-        : room.game.playCard(seatIndex, cardId);
+    let ok = false;
+    if (room.gameType === 'tressette') {
+      ok = room.game.playCard(seatIndex, cardId, extra);
+    } else if (room.gameType === 'scopa') {
+      ok = room.game.playCard(seatIndex, cardId, extra || {});
+    } else {
+      ok = room.game.playCard(seatIndex, cardId);
+    }
     if (ok) room.updatedAt = Date.now();
     return ok;
   }

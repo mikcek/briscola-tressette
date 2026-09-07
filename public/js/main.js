@@ -106,10 +106,16 @@ function updateSetupHint() {
   const hint = document.getElementById('setup-hint');
   if (!hint) return;
   if (game === 'tressette' && count === '2') {
-    hint.textContent = 'Tressette 1 vs 1: dopo ogni presa si pesca e si mostra la carta all\'avversario.';
+    hint.textContent =
+      "Tressette 1 vs 1: dopo ogni presa si pesca e si mostra la carta all'avversario.";
   } else if (game === 'tressette' && count === '4') {
     hint.textContent =
       'Squadre 1+3 vs 2+4. Due amici sulla stessa squadra: posti liberi → «Riempi con CPU».';
+  } else if (game === 'scopa') {
+    hint.textContent =
+      count === '2'
+        ? 'Scopa 1 vs 1 · Settebello jolly, Buongioco, vittoria a 21.'
+        : 'Scopa a squadre · posti liberi riempibili con CPU · a 21.';
   } else if (game === 'briscola' && count === '4') {
     hint.textContent = 'Briscola a 4 a squadre. Puoi riempire i posti liberi con CPU.';
   } else {

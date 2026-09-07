@@ -7,6 +7,9 @@ import {
   tressetteRankIndex,
   tressetteThirds,
   compareTressette,
+  isSettebello,
+  scopaCaptureValue,
+  getScopaLegalCaptures,
 } from './cards.js';
 
 function pickMin(cards, scoreFn) {
@@ -271,4 +274,94 @@ function tressetteDump(playable, fullHand) {
     // Preferisci seme corto (crea vuoto) e carte basse senza punti
     return thirds * 10 + keepHigh + rank - (len === 1 ? 5 : 0) + len * 0.1;
   });
+}
+
+function scoreScopaTaken(cards) {
+  let s = 0;
+  for (const c of cards) {
+    if (isSettebello(c)) s += 50;
+    if (c.suit === 'denari' && c.rank === 're') s += 40;
+    if (c.suit === 'denari' && c.rank === 'asso') s += 40;
+    if (c.suit === 'denari') s += 8;
+    if (c.rank === '7') s += 6;
+    s += 1;
+  }
+  return s;
+}
+
+/**
+ * Scopa AI.
+ * @returns {{ cardId: number, tableCardIds: number[], jollyValue: number|null } | null}
+ */
+export function chooseScopaMove(hand, table) {
+  if (!hand?.length) return null;
+
+  const moves = [];
+
+  for (const card of hand) {
+    if (isSettebello(card)) {
+      for (let v = 1; v <= 10; v++) {
+        const { captures } = getScopaLegalCaptures(table, card, v);
+        for (const cap of captures) {
+          const taken = [...cap, card];
+          const clears = cap.length === table.length;
+          moves.push({
+            cardId: card.id,
+            tableCardIds: cap.map((c) => c.id),
+            jollyValue: v,
+            score:
+              scoreScopaTaken(taken) +
+              (clears ? 100 : 0) +
+              (cap.length > 1 ? 2 : 0),
+          });
+        }
+      }
+      // Posa jolly solo se nessuna presa
+      const any = getScopaLegalCaptures(table, card).captures;
+      if (any.length === 0) {
+        moves.push({
+          cardId: card.id,
+          tableCardIds: [],
+          jollyValue: null,
+          score: -20 - scopaCaptureValue(card),
+        });
+      }
+    } else {
+      const { captures } = getScopaLegalCaptures(table, card);
+      if (captures.length === 0) {
+        // Posa: penalizza lasciare valori che matchano altre carte tavolo
+        let danger = 0;
+        const v = scopaCaptureValue(card);
+        if (table.some((c) => scopaCaptureValue(c) === v)) danger += 15;
+        const sumTable = table.reduce((s, c) => s + scopaCaptureValue(c), 0);
+        if (sumTable + v <= 10 && table.length > 0) danger += 5;
+        moves.push({
+          cardId: card.id,
+          tableCardIds: [],
+          jollyValue: null,
+          score: -danger - (card.suit === 'denari' ? 12 : 0) - (card.rank === '7' ? 8 : 0) - v * 0.1,
+        });
+      } else {
+        for (const cap of captures) {
+          const taken = [...cap, card];
+          const clears = cap.length === table.length;
+          moves.push({
+            cardId: card.id,
+            tableCardIds: cap.map((c) => c.id),
+            jollyValue: null,
+            score: scoreScopaTaken(taken) + (clears ? 100 : 0),
+          });
+        }
+      }
+    }
+  }
+
+  if (!moves.length) return null;
+  moves.sort((a, b) => b.score - a.score);
+  const best = moves[0];
+  return {
+    cardId: best.cardId,
+    tableCardIds: best.tableCardIds,
+    jollyValue: best.jollyValue,
+  };
 }

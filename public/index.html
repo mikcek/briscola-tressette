@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#0f3d26">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Briscola & Tressette</title>
+  <title>Briscola, Tressette & Scopa</title>
   <link rel="manifest" href="/manifest.json">
-  <link rel="stylesheet" href="/styles.css?v=9">
+  <link rel="stylesheet" href="/styles.css?v=10">
 </head>
 <body>
   <div id="app">
     <!-- HOME -->
     <div id="home-screen" class="screen active">
       <header class="menu-header">
-        <h1>Briscola & Tressette</h1>
+        <h1>Briscola, Tressette & Scopa</h1>
         <p>Gioca sul posto o online con gli amici</p>
       </header>
       <div class="game-cards">
@@ -50,6 +50,14 @@
         <button class="game-select local-game-select" data-game="tressette4" type="button">
           <h2>Tressette 2 vs 2</h2>
           <p>Tu + partner CPU · avversari CPU</p>
+        </button>
+        <button class="game-select local-game-select" data-game="scopa2" type="button">
+          <h2>Scopa 1 vs 1</h2>
+          <p>vs CPU · vittoria a 21</p>
+        </button>
+        <button class="game-select local-game-select" data-game="scopa4" type="button">
+          <h2>Scopa 2 vs 2</h2>
+          <p>Tu + partner CPU · a 21</p>
         </button>
       </div>
     </div>
@@ -89,6 +97,7 @@
             <select id="select-game-type">
               <option value="briscola">Briscola</option>
               <option value="tressette">Tressette</option>
+              <option value="scopa">Scopa</option>
             </select>
           </label>
           <label>Giocatori
@@ -272,6 +281,63 @@
           </div>
         </div>
       </div>
+
+      <!-- Scopa 2 -->
+      <div id="table-scopa-2" class="table hidden">
+        <div class="opponent-area">
+          <div class="player-info">
+            <span class="player-name" id="sc2-opp-name">CPU</span>
+            <span class="card-count" id="sc2-opp-count">3</span>
+          </div>
+          <div class="hand opponent-hand" id="sc2-opp-hand"></div>
+        </div>
+        <div class="play-area">
+          <div class="scopa-deck-info">
+            <span id="sc2-deck-count">Mazzo</span>
+          </div>
+          <div class="scopa-table" id="sc2-table"></div>
+          <div class="message" id="game-message-sc2"></div>
+          <div id="sc2-hint" class="scopa-hint"></div>
+          <button id="sc2-confirm" class="btn-secondary scopa-confirm hidden" type="button">Conferma presa</button>
+          <div id="sc2-log" class="accusi-log"></div>
+        </div>
+        <div class="player-area">
+          <div class="hand player-hand" id="sc2-player-hand"></div>
+          <div class="player-info"><span class="player-name">Tu</span></div>
+        </div>
+      </div>
+
+      <!-- Scopa 4 -->
+      <div id="table-scopa-4" class="table hidden">
+        <div class="tressette-layout">
+          <div class="seat seat-north" data-seat="2">
+            <span class="seat-name">Partner</span>
+            <div class="hand mini-hand" id="sc4-hand-north"></div>
+          </div>
+          <div class="middle-row">
+            <div class="seat seat-west" data-seat="3">
+              <span class="seat-name">Avv. Ovest</span>
+              <div class="hand mini-hand vertical" id="sc4-hand-west"></div>
+            </div>
+            <div class="play-area tressette-center">
+              <div class="scopa-deck-info"><span id="sc4-deck-count">Mazzo</span></div>
+              <div class="scopa-table" id="sc4-table"></div>
+              <div class="message" id="game-message-sc4"></div>
+              <div id="sc4-hint" class="scopa-hint"></div>
+              <button id="sc4-confirm" class="btn-secondary scopa-confirm hidden" type="button">Conferma presa</button>
+              <div id="sc4-log" class="accusi-log"></div>
+            </div>
+            <div class="seat seat-east" data-seat="1">
+              <span class="seat-name">Avv. Est</span>
+              <div class="hand mini-hand vertical" id="sc4-hand-east"></div>
+            </div>
+          </div>
+          <div class="seat seat-south" data-seat="0">
+            <div class="hand player-hand" id="sc4-hand-south"></div>
+            <span class="seat-name">Tu</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div id="hand-result" class="overlay hidden">
@@ -283,6 +349,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/main.js?v=9"></script>
+  <script type="module" src="/js/main.js?v=10"></script>
 </body>
 </html>

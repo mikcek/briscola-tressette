@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import { RoomManager } from './rooms.js';
-import { chooseBriscolaMove, chooseTressetteMove } from '../shared/ai.js';
+import { chooseBriscolaMove, chooseTressetteMove, chooseScopaMove } from '../shared/ai.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -168,7 +168,15 @@ function onStart(ws) {
 
 function onPlay(ws, msg) {
   ensurePlayer(ws);
-  const room = rooms.playCard(ws.playerId, Number(msg.cardId), msg.signal || null);
+  const cardId = Number(msg.cardId);
+  let extra = msg.signal || null;
+  if (msg.tableCardIds || msg.jollyValue != null) {
+    extra = {
+      tableCardIds: Array.isArray(msg.tableCardIds) ? msg.tableCardIds.map(Number) : [],
+      jollyValue: msg.jollyValue != null ? Number(msg.jollyValue) : null,
+    };
+  }
+  const room = rooms.playCard(ws.playerId, cardId, extra);
   pushGameState(room);
   afterState(room);
 }
@@ -266,15 +274,24 @@ function runCpuTurn(room) {
       seat: player,
       playerCount: game.playerCount || room.playerCount || 4,
     });
+    if (!move) return;
+    rooms.playCpuCard(room, player, move.id);
+  } else if (room.gameType === 'scopa') {
+    move = chooseScopaMove(hand, game.table);
+    if (!move) return;
+    rooms.playCpuCard(room, player, move.cardId, {
+      tableCardIds: move.tableCardIds,
+      jollyValue: move.jollyValue,
+    });
   } else {
     move = chooseBriscolaMove(hand, game.trick, game.trump, {
       isFirst: game.trick.length === 0,
       seat: player,
       playerCount: game.playerCount || room.playerCount || 2,
     });
+    if (!move) return;
+    rooms.playCpuCard(room, player, move.id);
   }
-  if (!move) return;
-  rooms.playCpuCard(room, player, move.id);
   pushGameState(room);
   afterState(room);
 }

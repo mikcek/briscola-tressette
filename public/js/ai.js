@@ -1,1 +1,5 @@
-export { chooseBriscolaMove, chooseTressetteMove } from '/shared/ai.js';
+export {
+  chooseBriscolaMove,
+  chooseTressetteMove,
+  chooseScopaMove,
+} from '/shared/ai.js';

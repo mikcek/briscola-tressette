@@ -284,3 +284,37 @@ export function showScreen(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
   document.getElementById(id)?.classList.add('active');
 }
+
+/**
+ * Tavolo Scopa: carte scoperte selezionabili.
+ */
+export function renderScopaTable(container, cards, options = {}) {
+  if (!container) return;
+  const {
+    selectedIds = [],
+    highlightIds = null,
+    onClick = null,
+    disabled = false,
+  } = options;
+
+  container.innerHTML = '';
+  if (!cards?.length) {
+    const empty = document.createElement('div');
+    empty.className = 'scopa-table-empty';
+    empty.textContent = 'Tavolo vuoto';
+    container.appendChild(empty);
+    return;
+  }
+
+  for (const card of cards) {
+    const el = createCardElement(card, { game: 'scopa' });
+    el.classList.add('scopa-table-card');
+    if (selectedIds.includes(card.id)) el.classList.add('selected');
+    if (highlightIds && highlightIds.includes(card.id)) el.classList.add('capture-hint');
+    if (disabled) el.classList.add('disabled');
+    else if (onClick) {
+      el.addEventListener('click', () => onClick(card));
+    }
+    container.appendChild(el);
+  }
+}

@@ -896,6 +896,52 @@ body {
   margin-bottom: 0.35rem;
 }
 
+.scopa-table {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+  min-height: 130px;
+  padding: 0.5rem;
+  margin: 0.35rem 0;
+}
+
+.scopa-table-empty {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.scopa-table-card.selected,
+.hand .card.selected {
+  outline: 3px solid var(--gold-light);
+  outline-offset: 2px;
+  transform: translateY(-6px);
+}
+
+.scopa-table-card.capture-hint {
+  box-shadow: 0 0 0 2px rgba(212, 168, 83, 0.55);
+}
+
+.scopa-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+  min-height: 1.2em;
+  max-width: 360px;
+}
+
+.scopa-confirm {
+  margin: 0.35rem auto;
+  display: block;
+}
+
+.scopa-deck-info {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 #btn-fill-cpu {
   width: min(100%, 320px);
   margin-bottom: 0.5rem;

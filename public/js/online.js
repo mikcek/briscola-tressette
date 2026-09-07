@@ -3,6 +3,7 @@ import {
   renderHand,
   renderFaceDownHand,
   renderTrick,
+  renderScopaTable,
   showOverlay,
   hideOverlay,
   updateScoreboard,
@@ -12,7 +13,7 @@ import {
   showScreen,
   renderSignalBar,
 } from './ui.js';
-import { SUIT_NAMES } from '/shared/cards.js';
+import { SUIT_NAMES, scopaCaptureValue, isSettebello } from '/shared/cards.js';
 
 /** Client multiplayer online. */
 export class OnlineApp {
@@ -25,6 +26,9 @@ export class OnlineApp {
     this._showingResult = false;
     this._bound = false;
     this.selectedSignal = null;
+    this.scopaCardId = null;
+    this.scopaTableIds = [];
+    this.scopaCaptures = [];
   }
 
   async ensureConnected() {
@@ -117,9 +121,13 @@ export class OnlineApp {
         ? this.room.playerCount === 2
           ? 'Tressette 1 vs 1'
           : 'Tressette a squadre'
-        : this.room.playerCount === 4
-          ? 'Briscola a 4'
-          : 'Briscola 1 vs 1';
+        : this.room.gameType === 'scopa'
+          ? this.room.playerCount === 2
+            ? 'Scopa 1 vs 1'
+            : 'Scopa a squadre'
+          : this.room.playerCount === 4
+            ? 'Briscola a 4'
+            : 'Briscola 1 vs 1';
     document.getElementById('lobby-code').textContent = this.room.code;
     document.getElementById('lobby-meta').textContent =
       `${modeLabel} · ${this.room.playerCount} posti`;
@@ -202,22 +210,34 @@ export class OnlineApp {
     showScreen('game-screen');
     document.getElementById('btn-new-hand').classList.add('hidden');
 
-    const isBriscola = this.state.gameType === 'briscola';
+    const gt = this.state.gameType;
+    const isBriscola = gt === 'briscola';
+    const isTressette = gt === 'tressette';
+    const isScopa = gt === 'scopa';
     const is4 = this.state.playerCount === 4;
-    const isTs2 = !isBriscola && !is4;
 
     document.getElementById('table-briscola').classList.toggle('hidden', !(isBriscola && !is4));
     document.getElementById('table-briscola-4').classList.toggle('hidden', !(isBriscola && is4));
-    document.getElementById('table-tressette-2')?.classList.toggle('hidden', !isTs2);
-    document.getElementById('table-tressette').classList.toggle('hidden', isBriscola || isTs2);
+    document.getElementById('table-tressette-2')?.classList.toggle('hidden', !(isTressette && !is4));
+    document.getElementById('table-tressette').classList.toggle('hidden', !(isTressette && is4));
+    document.getElementById('table-scopa-2')?.classList.toggle('hidden', !(isScopa && !is4));
+    document.getElementById('table-scopa-4')?.classList.toggle('hidden', !(isScopa && is4));
 
-    document.getElementById('game-title').textContent =
-      `${isBriscola ? 'Briscola' : isTs2 ? 'Tressette 1 vs 1' : 'Tressette'} · ${this.room.code}`;
+    const titleGame = isBriscola
+      ? 'Briscola'
+      : isScopa
+        ? is4
+          ? 'Scopa'
+          : 'Scopa 1 vs 1'
+        : is4
+          ? 'Tressette'
+          : 'Tressette 1 vs 1';
+    document.getElementById('game-title').textContent = `${titleGame} · ${this.room.code}`;
 
     const myTeam = this.you.seatIndex % 2;
     let labels;
     let scores;
-    if ((isBriscola && !is4) || isTs2) {
+    if ((isBriscola && !is4) || ((isTressette || isScopa) && !is4)) {
       const me = this.you.seatIndex;
       const opp = 1 - me;
       labels = [this.state.playerNames[me], this.state.playerNames[opp]];
@@ -239,15 +259,182 @@ export class OnlineApp {
 
     if (isBriscola && !is4) this.renderBriscola2();
     else if (isBriscola && is4) this.renderFourTable('table-briscola-4', 'briscola');
-    else if (isTs2) this.renderTressette2();
-    else {
+    else if (isTressette && !is4) this.renderTressette2();
+    else if (isTressette && is4) {
       this.renderFourTable('table-tressette', 'tressette');
       this.renderTressetteExtras('tressette-signals', 'tressette-accusi');
-    }
+    } else if (isScopa && !is4) this.renderOnlineScopa2();
+    else if (isScopa && is4) this.renderOnlineScopa4();
 
     if ((this.state.handOver || this.state.gameOver) && !this._showingResult) {
       this.showResult();
     }
+  }
+
+  clearScopaSelection() {
+    this.scopaCardId = null;
+    this.scopaTableIds = [];
+    this.scopaCaptures = [];
+  }
+
+  renderOnlineScopa2() {
+    const state = this.state;
+    const me = this.you.seatIndex;
+    const opp = 1 - me;
+    setMessage('game-message-sc2', state.message);
+    document.getElementById('sc2-opp-name').textContent = state.playerNames[opp];
+    document.getElementById('sc2-opp-count').textContent = state.handCounts[opp];
+    document.getElementById('sc2-deck-count').textContent =
+      state.deckRemaining > 0 ? `Mazzo: ${state.deckRemaining}` : 'Mazzo esaurito';
+    renderFaceDownHand(document.getElementById('sc2-opp-hand'), state.handCounts[opp], {
+      facing: 'north',
+    });
+    this.renderOnlineScopaPlay(state, me, {
+      tableId: 'sc2-table',
+      handId: 'sc2-player-hand',
+      hintId: 'sc2-hint',
+      confirmId: 'sc2-confirm',
+      logId: 'sc2-log',
+    });
+  }
+
+  renderOnlineScopa4() {
+    const state = this.state;
+    const me = this.you.seatIndex;
+    setMessage('game-message-sc4', state.message);
+    document.getElementById('sc4-deck-count').textContent =
+      state.deckRemaining > 0 ? `Mazzo: ${state.deckRemaining}` : 'Mazzo esaurito';
+
+    const rel = (abs) => (abs - me + 4) % 4;
+    const absFromRel = (r) => (me + r) % 4;
+    const handId = (r) => {
+      const names = ['south', 'east', 'north', 'west'];
+      return `sc4-hand-${names[r]}`;
+    };
+    const facingRel = ['south', 'east', 'north', 'west'];
+
+    for (let r = 0; r < 4; r++) {
+      const abs = absFromRel(r);
+      const nameEl = document.querySelector(
+        `#table-scopa-4 .seat-${facingRel[r]} .seat-name`
+      );
+      if (nameEl) {
+        nameEl.textContent =
+          state.playerNames[abs] +
+          (abs === me ? ' (tu)' : '') +
+          (state.currentPlayer === abs ? ' ●' : '');
+      }
+      if (abs === me) continue;
+      renderFaceDownHand(document.getElementById(handId(r)), state.handCounts[abs], {
+        small: true,
+        facing: facingRel[r],
+      });
+    }
+
+    document.querySelectorAll('#table-scopa-4 .seat').forEach((s) => s.classList.remove('active'));
+    document
+      .querySelector(`#table-scopa-4 .seat-${facingRel[rel(state.currentPlayer)]}`)
+      ?.classList.add('active');
+
+    this.renderOnlineScopaPlay(state, me, {
+      tableId: 'sc4-table',
+      handId: 'sc4-hand-south',
+      hintId: 'sc4-hint',
+      confirmId: 'sc4-confirm',
+      logId: 'sc4-log',
+    });
+  }
+
+  renderOnlineScopaPlay(state, me, ids) {
+    const selecting = this.scopaCardId != null && this.scopaCaptures.length > 1;
+    renderScopaTable(document.getElementById(ids.tableId), state.table, {
+      selectedIds: this.scopaTableIds,
+      highlightIds: selecting ? [...new Set(this.scopaCaptures.flat())] : null,
+      disabled: !state.canPlay,
+      onClick: (card) => this.onOnlineScopaTable(card),
+    });
+    renderHand(document.getElementById(ids.handId), state.hands[me], {
+      game: 'scopa',
+      disabled: !state.canPlay,
+      onClick: (card) => this.onOnlineScopaHand(card, state),
+    });
+    markPlayable(`#${ids.handId}`, state.playableCardIds);
+
+    const hint = document.getElementById(ids.hintId);
+    const confirm = document.getElementById(ids.confirmId);
+    if (!confirm.dataset.bound) {
+      confirm.dataset.bound = '1';
+      confirm.addEventListener('click', () => this.confirmOnlineScopa());
+    }
+    if (selecting) {
+      hint.textContent = 'Seleziona le carte da prendere, poi conferma';
+      const key = [...this.scopaTableIds].sort((a, b) => a - b).join(',');
+      const ok = this.scopaCaptures.some(
+        (cap) => [...cap].sort((a, b) => a - b).join(',') === key
+      );
+      confirm.classList.toggle('hidden', !ok);
+    } else {
+      hint.textContent = state.canPlay ? 'Clicca una carta della mano' : '';
+      confirm.classList.add('hidden');
+    }
+    const log = document.getElementById(ids.logId);
+    if (log) {
+      log.textContent = state.buongiocoLog?.length ? state.buongiocoLog.join(' · ') : '';
+    }
+  }
+
+  onOnlineScopaHand(card, state) {
+    if (!state.canPlay) return;
+    const captures = state.legalCapturesByCard?.[card.id] || [];
+    if (captures.length === 0) {
+      this.clearScopaSelection();
+      this.playScopaCard(card.id, [], null);
+      return;
+    }
+    if (captures.length === 1) {
+      this.clearScopaSelection();
+      this.playScopaCard(card.id, captures[0], state);
+      return;
+    }
+    this.scopaCardId = card.id;
+    this.scopaCaptures = captures;
+    this.scopaTableIds = [];
+    this.renderGame();
+  }
+
+  onOnlineScopaTable(card) {
+    if (this.scopaCardId == null || this.scopaCaptures.length <= 1) return;
+    const i = this.scopaTableIds.indexOf(card.id);
+    if (i >= 0) this.scopaTableIds.splice(i, 1);
+    else this.scopaTableIds.push(card.id);
+    this.renderGame();
+  }
+
+  confirmOnlineScopa() {
+    const key = [...this.scopaTableIds].sort((a, b) => a - b).join(',');
+    const ok = this.scopaCaptures.some(
+      (cap) => [...cap].sort((a, b) => a - b).join(',') === key
+    );
+    if (!ok || this.scopaCardId == null) return;
+    this.playScopaCard(this.scopaCardId, this.scopaTableIds, this.state);
+  }
+
+  playScopaCard(cardId, tableCardIds, state) {
+    let jollyValue = null;
+    const hand = state?.hands?.[this.you.seatIndex] || [];
+    const card = hand.find((c) => c.id === cardId);
+    if (card && isSettebello(card) && tableCardIds.length) {
+      jollyValue = (state.table || [])
+        .filter((c) => tableCardIds.includes(c.id))
+        .reduce((s, c) => s + scopaCaptureValue(c), 0);
+    }
+    this.clearScopaSelection();
+    this.net.send({
+      type: 'playCard',
+      cardId,
+      tableCardIds,
+      jollyValue,
+    });
   }
 
   renderTressette2() {
@@ -513,6 +700,7 @@ export class OnlineApp {
       state.message,
       () => {
         this._showingResult = false;
+        this.clearScopaSelection();
         if (canRematch) this.net.send({ type: 'rematch' });
       },
       canRematch ? 'Nuova partita' : 'OK'
@@ -522,6 +710,7 @@ export class OnlineApp {
   stop() {
     hideOverlay();
     this._showingResult = false;
+    this.clearScopaSelection();
   }
 }
 
