@@ -5,17 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#0f3d26">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Briscola, Tressette & Scopa</title>
+  <title>Carte italiane</title>
   <link rel="manifest" href="/manifest.json">
-  <link rel="stylesheet" href="/styles.css?v=10">
+  <link rel="stylesheet" href="/styles.css?v=11">
 </head>
 <body>
   <div id="app">
     <!-- HOME -->
     <div id="home-screen" class="screen active">
       <header class="menu-header">
-        <h1>Briscola, Tressette & Scopa</h1>
-        <p>Gioca sul posto o online con gli amici</p>
+        <h1>Carte italiane</h1>
+        <p>Briscola, Tressette, Scopa e solitari</p>
       </header>
       <div class="game-cards">
         <button class="game-select" id="btn-mode-local" type="button">
@@ -58,6 +58,10 @@
         <button class="game-select local-game-select" data-game="scopa4" type="button">
           <h2>Scopa 2 vs 2</h2>
           <p>Tu + partner CPU · a 21</p>
+        </button>
+        <button class="game-select local-game-select" data-game="scartaIlRe" type="button">
+          <h2>Scarta il Re</h2>
+          <p>Solitario · solo tu</p>
         </button>
       </div>
     </div>
@@ -338,6 +342,33 @@
           </div>
         </div>
       </div>
+      <!-- Scarta il Re (solitario) -->
+      <div id="table-scarta-re" class="table hidden">
+        <div class="skr-layout">
+          <div class="skr-sidebar">
+            <div class="skr-pozzo-wrap">
+              <button type="button" id="skr-pozzo" class="skr-pozzo" title="Pesca dal pozzo">
+                <span class="skr-pozzo-back"></span>
+              </button>
+              <span id="skr-pozzo-count" class="skr-meta">Pozzo: 4</span>
+            </div>
+            <div class="skr-current-wrap">
+              <span class="skr-label">In gioco</span>
+              <div id="skr-current" class="skr-current"></div>
+            </div>
+            <div class="skr-discard-wrap">
+              <span class="skr-label">Re scartati</span>
+              <div id="skr-discard" class="skr-discard"></div>
+              <span id="skr-kings" class="skr-meta">0 / 4</span>
+            </div>
+          </div>
+          <div class="skr-main">
+            <div id="skr-grid" class="skr-grid"></div>
+            <div class="message" id="game-message-skr"></div>
+            <p id="skr-hint" class="scopa-hint"></p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div id="hand-result" class="overlay hidden">
@@ -349,6 +380,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/main.js?v=10"></script>
+  <script type="module" src="/js/main.js?v=11"></script>
 </body>
 </html>

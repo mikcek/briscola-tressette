@@ -946,3 +946,159 @@ body {
   width: min(100%, 320px);
   margin-bottom: 0.5rem;
 }
+
+/* Scarta il Re */
+.skr-layout {
+  display: flex;
+  gap: 1rem;
+  flex: 1;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding: 0.5rem 0;
+}
+
+.skr-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 100px;
+  align-items: center;
+}
+
+.skr-pozzo {
+  width: var(--card-w);
+  height: var(--card-h);
+  border: none;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: default;
+  position: relative;
+}
+
+.skr-pozzo .skr-pozzo-back,
+.skr-pozzo-back {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  background-image: url('/cards/dorso.jpg');
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 2px 8px var(--card-shadow);
+  border: 1px solid rgba(0, 0, 0, 0.35);
+}
+
+.skr-pozzo.drawable {
+  cursor: pointer;
+  outline: 3px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.skr-pozzo.empty .skr-pozzo-back {
+  opacity: 0.25;
+  filter: grayscale(0.5);
+}
+
+.skr-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.skr-label {
+  font-size: 0.75rem;
+  color: var(--gold);
+  display: block;
+  margin-bottom: 0.25rem;
+  text-align: center;
+}
+
+.skr-current {
+  min-height: var(--card-h);
+  min-width: var(--card-w);
+  display: flex;
+  justify-content: center;
+}
+
+.skr-discard {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  justify-content: center;
+  max-width: 120px;
+}
+
+.skr-main {
+  flex: 1;
+  min-width: 280px;
+  overflow-x: auto;
+}
+
+.skr-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.skr-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.skr-row-pick {
+  cursor: pointer;
+  background: rgba(212, 168, 83, 0.18);
+  outline: 2px dashed var(--gold);
+}
+
+.skr-row-pick:hover {
+  background: rgba(212, 168, 83, 0.3);
+}
+
+.skr-row-label {
+  width: 4.5rem;
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-align: right;
+  padding-right: 0.35rem;
+}
+
+.skr-row-pick .skr-row-label {
+  color: var(--gold-light);
+  font-weight: 600;
+}
+
+.skr-slot {
+  width: var(--card-mini-w);
+  height: var(--card-mini-h);
+  flex-shrink: 0;
+}
+
+.skr-slot .card {
+  width: var(--card-mini-w);
+  height: var(--card-mini-h);
+  cursor: default;
+}
+
+.skr-slot.empty {
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+@media (max-width: 700px) {
+  .skr-layout {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .skr-sidebar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}

@@ -1,8 +1,9 @@
 import { BriscolaGame } from '/shared/briscola.js';
 import { TressetteGame } from '/shared/tressette.js';
 import { ScopaGame } from '/shared/scopa.js';
+import { ScartaIlReGame } from '/shared/scartaIlRe.js';
 import { chooseBriscolaMove, chooseTressetteMove, chooseScopaMove } from './ai.js';
-import { scopaCaptureValue, isSettebello } from '/shared/cards.js';
+import { scopaCaptureValue, isSettebello, SUIT_NAMES } from '/shared/cards.js';
 import {
   renderHand,
   renderFaceDownHand,
@@ -26,7 +27,7 @@ export class LocalApp {
   constructor(rootApp) {
     this.root = rootApp;
     this.currentGame = null;
-    this.gameType = null; // briscola | tressette2 | tressette4 | scopa2 | scopa4
+    this.gameType = null; // briscola | tressette2 | tressette4 | scopa2 | scopa4 | scartaIlRe
     this.aiTimer = null;
     this.trickTimer = null;
     this.drawTimer = null;
@@ -35,6 +36,7 @@ export class LocalApp {
     this.scopaCardId = null;
     this.scopaTableIds = [];
     this.scopaCaptures = [];
+    this._skrPozzoBound = false;
   }
 
   clearTimers() {
@@ -54,6 +56,10 @@ export class LocalApp {
 
   get isScopa() {
     return this.gameType === 'scopa2' || this.gameType === 'scopa4';
+  }
+
+  get isScartaIlRe() {
+    return this.gameType === 'scartaIlRe';
   }
 
   clearScopaSelection() {
@@ -76,6 +82,7 @@ export class LocalApp {
     const table4 = document.getElementById('table-briscola-4');
     const scopa2 = document.getElementById('table-scopa-2');
     const scopa4 = document.getElementById('table-scopa-4');
+    const scartaRe = document.getElementById('table-scarta-re');
 
     table4?.classList.add('hidden');
     briscolaTable.classList.add('hidden');
@@ -83,6 +90,7 @@ export class LocalApp {
     tressette4.classList.add('hidden');
     scopa2?.classList.add('hidden');
     scopa4?.classList.add('hidden');
+    scartaRe?.classList.add('hidden');
 
     if (this.gameType === 'briscola') {
       document.getElementById('game-title').textContent = 'Briscola (vs CPU)';
@@ -107,7 +115,7 @@ export class LocalApp {
       this.currentGame = new ScopaGame(['Tu', 'CPU'], { playerCount: 2, targetScore: 21 });
       updateScoreboard([0, 0], ['Tu', 'CPU'], 'Prima a 21');
       this.bindScopaConfirm('sc2-confirm');
-    } else {
+    } else if (this.gameType === 'scopa4') {
       document.getElementById('game-title').textContent = 'Scopa 2 vs 2';
       scopa4.classList.remove('hidden');
       this.currentGame = new ScopaGame(['Tu', 'Avv. Est', 'Partner', 'Avv. Ovest'], {
@@ -116,12 +124,32 @@ export class LocalApp {
       });
       updateScoreboard([0, 0], ['Noi', 'Loro'], 'Prima a 21');
       this.bindScopaConfirm('sc4-confirm');
+    } else if (this.gameType === 'scartaIlRe') {
+      document.getElementById('game-title').textContent = 'Scarta il Re';
+      scartaRe.classList.remove('hidden');
+      this.currentGame = new ScartaIlReGame();
+      updateScoreboard(['—', '—'], ['Solitario', ''], 'Scarta i 4 Re');
+      this.bindScartaIlRe();
     }
 
     document.getElementById('btn-new-hand').classList.remove('hidden');
     this.currentGame.startGame();
     this.render();
     this.advanceFlow();
+  }
+
+  bindScartaIlRe() {
+    const pozzo = document.getElementById('skr-pozzo');
+    if (pozzo && !this._skrPozzoBound) {
+      this._skrPozzoBound = true;
+      pozzo.addEventListener('click', () => {
+        if (!this.isScartaIlRe || !this.currentGame) return;
+        if (this.currentGame.draw()) {
+          this.render();
+          this.advanceFlow();
+        }
+      });
+    }
   }
 
   bindScopaConfirm(btnId) {
@@ -135,8 +163,9 @@ export class LocalApp {
     this.clearTimers();
     this._showingResult = false;
     this.clearScopaSelection();
-    if (this.currentGame.gameOver) this.currentGame.startGame();
-    else this.currentGame.startHand();
+    if (this.isScartaIlRe || this.currentGame.gameOver) this.currentGame.startGame();
+    else if (typeof this.currentGame.startHand === 'function') this.currentGame.startHand();
+    else this.currentGame.startGame();
     this.render();
     this.advanceFlow();
   }
@@ -147,6 +176,7 @@ export class LocalApp {
     else if (this.gameType === 'tressette4') this.renderTressette4();
     else if (this.gameType === 'scopa2') this.renderScopa2();
     else if (this.gameType === 'scopa4') this.renderScopa4();
+    else if (this.gameType === 'scartaIlRe') this.renderScartaIlRe();
   }
 
   renderBriscola() {
@@ -407,6 +437,88 @@ export class LocalApp {
     });
   }
 
+  renderScartaIlRe() {
+    const state = this.currentGame.getState();
+    updateScoreboard(
+      [state.kingsDiscarded, state.faceDownCount],
+      ['Re fuori', 'Coperte'],
+      `Pozzo: ${state.pozzoCount}`
+    );
+    setMessage('game-message-skr', state.message);
+
+    const pozzo = document.getElementById('skr-pozzo');
+    const pozzoCount = document.getElementById('skr-pozzo-count');
+    pozzoCount.textContent = `Pozzo: ${state.pozzoCount}`;
+    pozzo.classList.toggle('drawable', !!state.canDraw);
+    pozzo.classList.toggle('empty', state.pozzoCount === 0);
+    pozzo.disabled = !state.canDraw;
+
+    const currentEl = document.getElementById('skr-current');
+    currentEl.innerHTML = '';
+    if (state.current) {
+      currentEl.appendChild(createCardElement(state.current, { game: 'scartaIlRe' }));
+    }
+
+    const discardEl = document.getElementById('skr-discard');
+    discardEl.innerHTML = '';
+    for (const card of state.discarded) {
+      const el = createCardElement(card, { game: 'scartaIlRe' });
+      el.classList.add('mini');
+      discardEl.appendChild(el);
+    }
+    document.getElementById('skr-kings').textContent = `${state.kingsDiscarded} / 4`;
+
+    const gridEl = document.getElementById('skr-grid');
+    gridEl.innerHTML = '';
+    for (let r = 0; r < 4; r++) {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'skr-row';
+      if (state.canChooseRow && state.freeRows.includes(r)) {
+        rowEl.classList.add('skr-row-pick');
+        rowEl.addEventListener('click', () => {
+          if (this.currentGame.chooseRow(r)) {
+            this.render();
+            this.advanceFlow();
+          }
+        });
+      }
+      const label = document.createElement('span');
+      label.className = 'skr-row-label';
+      label.textContent = state.rowSuitNames[r] || `Fila ${r + 1}`;
+      rowEl.appendChild(label);
+
+      for (let c = 0; c < 9; c++) {
+        const cell = state.grid[r][c];
+        const slot = document.createElement('div');
+        slot.className = 'skr-slot';
+        if (!cell) {
+          slot.classList.add('empty');
+        } else if (cell.faceUp && cell.card) {
+          const cardEl = createCardElement(cell.card, { game: 'scartaIlRe' });
+          cardEl.classList.add('mini');
+          slot.appendChild(cardEl);
+        } else {
+          const back = document.createElement('div');
+          back.className = 'card card-back mini';
+          slot.appendChild(back);
+        }
+        rowEl.appendChild(slot);
+      }
+      gridEl.appendChild(rowEl);
+    }
+
+    const hint = document.getElementById('skr-hint');
+    if (state.canChooseRow && state.current) {
+      hint.textContent = `Clicca una fila libera per ${SUIT_NAMES[state.current.suit]}`;
+    } else if (state.canDraw) {
+      hint.textContent = 'Clicca il pozzo per pescare';
+    } else {
+      hint.textContent = '';
+    }
+
+    if (state.gameOver && !this._showingResult) this.showHandResult(state);
+  }
+
   renderScopaPlayArea(state, ids) {
     const selecting = this.scopaCardId != null && this.scopaCaptures.length > 1;
     const highlight = selecting
@@ -534,6 +646,12 @@ export class LocalApp {
   }
 
   advanceFlow() {
+    if (this.isScartaIlRe) {
+      const state = this.currentGame.getState();
+      if (state.gameOver && !this._showingResult) this.showHandResult(state);
+      return;
+    }
+
     const state = this.currentGame.getState();
 
     if (state.phase === 'showingTrick') {
@@ -572,6 +690,7 @@ export class LocalApp {
   }
 
   scheduleAI() {
+    if (this.isScartaIlRe) return;
     clearTimeout(this.aiTimer);
     const state = this.currentGame.getState();
     if (state.handOver || state.phase !== 'playing') return;
@@ -619,7 +738,10 @@ export class LocalApp {
     this._showingResult = true;
     let title = 'Mano terminata';
     let detail = state.message;
-    if (this.gameType === 'briscola') {
+    if (this.isScartaIlRe) {
+      title = state.won ? 'Solitario riuscito!' : 'Solitario fallito';
+      detail = state.message;
+    } else if (this.gameType === 'briscola') {
       if (state.winner === 0) title = 'Vittoria!';
       else if (state.winner === 1) title = 'Sconfitta';
       else title = 'Patta';
@@ -640,8 +762,11 @@ export class LocalApp {
     showOverlay(title, detail, () => {
       this._showingResult = false;
       this.clearScopaSelection();
-      if (this.gameType === 'briscola' || state.gameOver) this.currentGame.startGame();
-      else this.currentGame.startHand();
+      if (this.isScartaIlRe || this.gameType === 'briscola' || state.gameOver) {
+        this.currentGame.startGame();
+      } else {
+        this.currentGame.startHand();
+      }
       this.render();
       this.advanceFlow();
     });
