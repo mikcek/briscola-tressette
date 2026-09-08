@@ -3,7 +3,7 @@ import { TressetteGame } from '/shared/tressette.js';
 import { ScopaGame } from '/shared/scopa.js';
 import { ScartaIlReGame } from '/shared/scartaIlRe.js';
 import { chooseBriscolaMove, chooseTressetteMove, chooseScopaMove } from './ai.js';
-import { scopaCaptureValue, isSettebello, SUIT_NAMES } from '/shared/cards.js';
+import { scopaCaptureValue, isSettebello } from '/shared/cards.js';
 import {
   renderHand,
   renderFaceDownHand,
@@ -456,7 +456,17 @@ export class LocalApp {
     const currentEl = document.getElementById('skr-current');
     currentEl.innerHTML = '';
     if (state.current) {
-      currentEl.appendChild(createCardElement(state.current, { game: 'scartaIlRe' }));
+      const cur = createCardElement(state.current, { game: 'scartaIlRe' });
+      if (state.canDiscardKing) {
+        cur.classList.add('skr-discardable');
+        cur.addEventListener('click', () => {
+          if (this.currentGame.discardKing()) {
+            this.render();
+            this.advanceFlow();
+          }
+        });
+      }
+      currentEl.appendChild(cur);
     }
 
     const discardEl = document.getElementById('skr-discard');
@@ -468,20 +478,15 @@ export class LocalApp {
     }
     document.getElementById('skr-kings').textContent = `${state.kingsDiscarded} / 4`;
 
+    const targetSet = new Set(
+      (state.placeTargets || []).map((t) => `${t.row},${t.col}`)
+    );
+
     const gridEl = document.getElementById('skr-grid');
     gridEl.innerHTML = '';
     for (let r = 0; r < 4; r++) {
       const rowEl = document.createElement('div');
       rowEl.className = 'skr-row';
-      if (state.canChooseRow && state.freeRows.includes(r)) {
-        rowEl.classList.add('skr-row-pick');
-        rowEl.addEventListener('click', () => {
-          if (this.currentGame.chooseRow(r)) {
-            this.render();
-            this.advanceFlow();
-          }
-        });
-      }
       const label = document.createElement('span');
       label.className = 'skr-row-label';
       label.textContent = state.rowSuitNames[r] || `Fila ${r + 1}`;
@@ -491,6 +496,16 @@ export class LocalApp {
         const cell = state.grid[r][c];
         const slot = document.createElement('div');
         slot.className = 'skr-slot';
+        const isTarget = targetSet.has(`${r},${c}`);
+        if (isTarget) {
+          slot.classList.add('skr-target');
+          slot.addEventListener('click', () => {
+            if (this.currentGame.placeAt(r, c)) {
+              this.render();
+              this.advanceFlow();
+            }
+          });
+        }
         if (!cell) {
           slot.classList.add('empty');
         } else if (cell.faceUp && cell.card) {
@@ -508,8 +523,10 @@ export class LocalApp {
     }
 
     const hint = document.getElementById('skr-hint');
-    if (state.canChooseRow && state.current) {
-      hint.textContent = `Clicca una fila libera per ${SUIT_NAMES[state.current.suit]}`;
+    if (state.canDiscardKing) {
+      hint.textContent = 'Clicca il Re in gioco per scartarlo';
+    } else if (state.canPlace) {
+      hint.textContent = 'Clicca la casella evidenziata per posizionare la carta';
     } else if (state.canDraw) {
       hint.textContent = 'Clicca il pozzo per pescare';
     } else {

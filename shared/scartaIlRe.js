@@ -27,8 +27,7 @@ export function isKing(card) {
 }
 
 /**
- * Solitario "Scarta il Re" — regolamento_solitario_scarta_il_re.md
- * Solo giocatore, niente CPU / multiplayer.
+ * Solitario "Scarta il Re" — ogni pesca e piazzamento è manuale (suspense).
  */
 export class ScartaIlReGame {
   constructor() {
@@ -44,7 +43,7 @@ export class ScartaIlReGame {
     this.pozzo = [];
     this.discarded = [];
     this.current = null;
-    this.phase = 'idle'; // draw | chooseRow | won | lost
+    this.phase = 'idle'; // draw | hold | won | lost
     this.message = '';
     this.gameOver = false;
     this.won = false;
@@ -87,8 +86,18 @@ export class ScartaIlReGame {
     return n;
   }
 
+  /** Celle su cui si può piazzare la carta corrente (click manuale). */
+  getValidPlaceTargets() {
+    if (this.phase !== 'hold' || !this.current || isKing(this.current)) return [];
+    const col = scartaIlReColumn(this.current);
+    if (col < 0) return [];
+    const assigned = this.rowForSuit(this.current.suit);
+    if (assigned >= 0) return [{ row: assigned, col }];
+    return this.freeRows.map((row) => ({ row, col }));
+  }
+
   /**
-   * Pesca dal pozzo (o continua dopo uno scarto Re).
+   * Pesca una sola carta dal pozzo — niente auto-catena.
    */
   draw() {
     if (this.phase !== 'draw' || this.gameOver) return false;
@@ -97,68 +106,51 @@ export class ScartaIlReGame {
       return true;
     }
     this.current = this.pozzo.pop();
-    return this.resolveCurrent();
+    this.phase = 'hold';
+    if (isKing(this.current)) {
+      this.message = `Re di ${SUIT_NAMES[this.current.suit]} · Clicca la carta per scartarla`;
+    } else {
+      const assigned = this.rowForSuit(this.current.suit);
+      this.message =
+        assigned < 0
+          ? `${this.current.label} di ${SUIT_NAMES[this.current.suit]} · Clicca una casella evidenziata (scegli la fila)`
+          : `${this.current.label} di ${SUIT_NAMES[this.current.suit]} · Clicca la casella evidenziata per posizionarla`;
+    }
+    return true;
   }
 
   /**
-   * Se current è Re → scarta e torna a draw.
-   * Se seme già assegnato → piazza automaticamente.
-   * Altrimenti → chooseRow.
+   * Scarta il Re in mano (azione manuale).
    */
-  resolveCurrent() {
-    if (!this.current) {
-      this.phase = 'draw';
-      this.message = this.pozzo.length
-        ? 'Pesca dal pozzo'
-        : 'Pozzo vuoto';
-      if (this.pozzo.length === 0) this.evaluateEnd();
-      return true;
-    }
-
-    if (isKing(this.current)) {
-      this.discarded.push(this.current);
-      this.current = null;
-      const n = this.kingsDiscarded;
-      if (n >= 4) {
-        this.evaluateEnd();
-        return true;
-      }
-      this.phase = 'draw';
-      this.message = `Re scartato (${n}/4) · Pesca dal pozzo`;
-      if (this.pozzo.length > 0) {
-        return this.draw();
-      }
+  discardKing() {
+    if (this.phase !== 'hold' || !this.current || !isKing(this.current)) return false;
+    this.discarded.push(this.current);
+    this.current = null;
+    const n = this.kingsDiscarded;
+    if (n >= 4) {
       this.evaluateEnd();
       return true;
     }
-
-    const row = this.rowForSuit(this.current.suit);
-    if (row < 0) {
-      this.phase = 'chooseRow';
-      this.message = `Scegli la fila per ${SUIT_NAMES[this.current.suit]}`;
-      return true;
+    this.phase = 'draw';
+    this.message = `Re scartato (${n}/4) · Pesca dal pozzo`;
+    if (this.pozzo.length === 0) {
+      this.evaluateEnd();
     }
-
-    return this.placeOnRow(row);
+    return true;
   }
 
   /**
-   * Assegna il seme della carta corrente a una fila libera e piazza.
+   * Piazza la carta corrente sulla casella cliccata (e sola azione di piazzamento).
+   * Se il seme non è ancora assegnato, la fila cliccata lo riceve.
    */
-  chooseRow(rowIndex) {
-    if (this.phase !== 'chooseRow' || !this.current) return false;
-    if (rowIndex < 0 || rowIndex > 3) return false;
-    if (this.rowSuits[rowIndex] != null) return false;
-    if (this.freeRows.length === 0) return false;
+  placeAt(row, col) {
+    if (this.phase !== 'hold' || !this.current || isKing(this.current)) return false;
+    const ok = this.getValidPlaceTargets().some((t) => t.row === row && t.col === col);
+    if (!ok) return false;
 
-    this.rowSuits[rowIndex] = this.current.suit;
-    return this.placeOnRow(rowIndex);
-  }
-
-  placeOnRow(row) {
-    if (!this.current || isKing(this.current)) return false;
-    const col = scartaIlReColumn(this.current);
-    if (col < 0) return false;
+    if (this.rowForSuit(this.current.suit) < 0) {
+      this.rowSuits[row] = this.current.suit;
+    }
 
     const cell = this.grid[row][col];
     const lifted = cell?.card || null;
@@ -169,19 +161,37 @@ export class ScartaIlReGame {
 
     if (lifted && wasFaceDown) {
       this.current = lifted;
-      this.message = `Sollevata: ${lifted.label} di ${SUIT_NAMES[lifted.suit]}`;
-      return this.resolveCurrent();
+      this.phase = 'hold';
+      if (isKing(lifted)) {
+        this.message = `Sollevato Re di ${SUIT_NAMES[lifted.suit]} · Clicca per scartarlo`;
+      } else {
+        const assigned = this.rowForSuit(lifted.suit);
+        this.message =
+          assigned < 0
+            ? `Sollevata: ${lifted.label} di ${SUIT_NAMES[lifted.suit]} · Clicca una casella evidenziata`
+            : `Sollevata: ${lifted.label} di ${SUIT_NAMES[lifted.suit]} · Clicca la casella evidenziata`;
+      }
+      return true;
     }
 
-    // Cella già scoperta (caso anomalo) o vuota: riprendi dal pozzo
     this.phase = 'draw';
-    this.message = this.pozzo.length
-      ? 'Pesca dal pozzo'
-      : 'Pozzo vuoto';
+    this.message = this.pozzo.length ? 'Pesca dal pozzo' : 'Pozzo vuoto';
     if (this.pozzo.length === 0 && this.kingsDiscarded >= 4) {
+      this.evaluateEnd();
+    } else if (this.pozzo.length === 0) {
       this.evaluateEnd();
     }
     return true;
+  }
+
+  /** @deprecated usato dalla UI precedente — reindirizza a placeAt sulla prima target */
+  chooseRow(rowIndex) {
+    if (this.phase !== 'hold' || !this.current || isKing(this.current)) return false;
+    const col = scartaIlReColumn(this.current);
+    if (col < 0) return false;
+    if (this.rowForSuit(this.current.suit) >= 0) return false;
+    if (this.rowSuits[rowIndex] != null) return false;
+    return this.placeAt(rowIndex, col);
   }
 
   isGridComplete() {
@@ -216,6 +226,7 @@ export class ScartaIlReGame {
   }
 
   getState() {
+    const targets = this.getValidPlaceTargets();
     return {
       gameType: 'scartaIlRe',
       grid: this.grid.map((row) =>
@@ -236,13 +247,16 @@ export class ScartaIlReGame {
       discarded: this.discarded.map(publicCard),
       current: this.current ? publicCard(this.current) : null,
       freeRows: this.freeRows,
+      placeTargets: targets,
       phase: this.phase,
       message: this.message,
       gameOver: this.gameOver,
       won: this.won,
       faceDownCount: this.faceDownCount,
       canDraw: this.phase === 'draw' && !this.gameOver && this.pozzo.length > 0,
-      canChooseRow: this.phase === 'chooseRow' && !this.gameOver,
+      canDiscardKing:
+        this.phase === 'hold' && !!this.current && isKing(this.current) && !this.gameOver,
+      canPlace: this.phase === 'hold' && !!this.current && !isKing(this.current) && !this.gameOver,
     };
   }
 }

@@ -1090,6 +1090,29 @@ body {
   border-radius: 4px;
 }
 
+.skr-slot.skr-target {
+  cursor: pointer;
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 6px;
+  box-shadow: 0 0 12px rgba(212, 168, 83, 0.45);
+}
+
+.skr-slot.skr-target:hover {
+  outline-color: var(--gold-light);
+}
+
+.skr-current .skr-discardable {
+  cursor: pointer;
+  outline: 3px solid var(--gold);
+  outline-offset: 3px;
+  animation: pulseDeck 1.2s ease-in-out infinite;
+}
+
+.skr-current .skr-discardable:hover {
+  transform: translateY(-4px);
+}
+
 @media (max-width: 700px) {
   .skr-layout {
     flex-direction: column;
